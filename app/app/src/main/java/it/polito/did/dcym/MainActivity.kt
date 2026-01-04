@@ -20,7 +20,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import it.polito.did.dcym.ui.navigation.Screen
 import it.polito.did.dcym.ui.theme.DontCallYourMomTheme
+// IMPORTA LE SCHERMATE VERE
 import it.polito.did.dcym.ui.screens.home.HomeScreen
+import it.polito.did.dcym.ui.screens.catalog.CatalogScreen
+import it.polito.did.dcym.ui.screens.detail.ProductDetailScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,18 +31,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DontCallYourMomTheme {
-                // 1. Inizializziamo il controller della navigazione
                 val navController = rememberNavController()
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    // 2. Definiamo il grafo di navigazione
                     NavHost(
                         navController = navController,
                         startDestination = Screen.Home.route,
                         modifier = Modifier.padding(innerPadding)
                     ) {
 
-                        // SCHERMATA HOME
+                        // --- HOME ---
                         composable(Screen.Home.route) {
                             HomeScreen(
                                 onFindProductClick = { navController.navigate(Screen.Catalog.route) },
@@ -47,32 +48,46 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // SCHERMATA MAPPA
+                        // --- MAPPA (Placeholder per ora) ---
                         composable(Screen.Map.route) {
                             MapScreen(
                                 onMachineSelected = {
-                                    // Esempio: vai al catalogo
+                                    // Simuliamo che dalla mappa si vada al catalogo di quella macchinetta
                                     navController.navigate(Screen.Catalog.route)
                                 }
                             )
                         }
 
-                        // SCHERMATA CATALOGO
+                        // --- CATALOGO ---
                         composable(Screen.Catalog.route) {
                             CatalogScreen(
                                 onProductClick = { productId ->
-                                    navController.navigate(Screen.ProductDetail.createRoute(productId))
+                                    // Naviga al dettaglio passando l'ID (convertito in String)
+                                    navController.navigate(Screen.ProductDetail.createRoute(productId.toString()))
                                 }
                             )
                         }
 
-                        // SCHERMATA DETTAGLIO PRODOTTO
+                        // --- DETTAGLIO PRODOTTO (MODIFICATO) ---
                         composable(
                             route = Screen.ProductDetail.route,
                             arguments = listOf(navArgument("productId") { type = NavType.StringType })
                         ) { backStackEntry ->
                             val productId = backStackEntry.arguments?.getString("productId")
-                            ProductDetailScreen(productId = productId)
+
+                            ProductDetailScreen(
+                                productId = productId,
+                                onBackClick = {
+                                    // Torna indietro
+                                    navController.popBackStack()
+                                },
+                                onMachineClick = { machineId ->
+                                    // Qui in futuro andremo alla pagina di acquisto specifica
+                                    // Per ora torniamo alla mappa o facciamo un print
+                                    println("Hai cliccato la macchinetta: $machineId")
+                                    // Esempio: navController.navigate(Screen.Map.route)
+                                }
+                            )
                         }
                     }
                 }
@@ -81,34 +96,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// --------------------------------------------------------------------------
-// PLACEHOLDER SCREENS (Schermate provvisorie per non avere errori)
-// Successivamente sposteremo ognuna di queste funzioni nel proprio file in 'ui/screens'
-// --------------------------------------------------------------------------
-
-
+// -------------------------------------------------------------------
+// RIMANI SOLO CON IL PLACEHOLDER DELLA MAPPA
+// (CatalogScreen e ProductDetailScreen li hai cancellati da qui perché ora sono file veri)
+// -------------------------------------------------------------------
 
 @Composable
 fun MapScreen(onMachineSelected: (String) -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Button(onClick = { onMachineSelected("macchinetta_1") }) {
-            Text("Simula selezione Macchinetta")
+        Button(onClick = { onMachineSelected("macchinetta_aule_i") }) {
+            Text("Simula selezione Macchinetta (Mappa in costruzione)")
         }
-    }
-}
-
-@Composable
-fun CatalogScreen(onProductClick: (String) -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Button(onClick = { onProductClick("calcolatrice_scientifica") }) {
-            Text("Vedi Calcolatrice")
-        }
-    }
-}
-
-@Composable
-fun ProductDetailScreen(productId: String?) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Dettaglio prodotto: $productId")
     }
 }

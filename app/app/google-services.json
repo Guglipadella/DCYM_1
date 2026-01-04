@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "932400287896",
+    "firebase_url": "https://did-mom-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "did-mom",
+    "storage_bucket": "did-mom.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:932400287896:android:c6aefe3e17b5c00d5000ed",
+        "android_client_info": {
+          "package_name": "it.polito.did.dcym"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC80PDuvuYpBJ7moIEHgoufQUUpr9AFQrw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:932400287896:android:8d3293579e527b085000ed",
+        "android_client_info": {
+          "package_name": "it.polito.did.lab7"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC80PDuvuYpBJ7moIEHgoufQUUpr9AFQrw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

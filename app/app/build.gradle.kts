@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -57,4 +58,9 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // Importa la piattaforma Firebase (BOM) - gestisce le versioni per te
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+
+    // Libreria per il Realtime Database
+    implementation("com.google.firebase:firebase-database")
 }
