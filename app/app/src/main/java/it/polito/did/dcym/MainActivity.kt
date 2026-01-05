@@ -24,6 +24,8 @@ import it.polito.did.dcym.ui.theme.DontCallYourMomTheme
 import it.polito.did.dcym.ui.screens.home.HomeScreen
 import it.polito.did.dcym.ui.screens.catalog.CatalogScreen
 import it.polito.did.dcym.ui.screens.detail.ProductDetailScreen
+import it.polito.did.dcym.ui.screens.purchase.PurchaseOptionsScreen
+import it.polito.did.dcym.ui.screens.confirmation.ConfirmationScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +71,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // --- DETTAGLIO PRODOTTO (MODIFICATO) ---
+                        // 1. AGGIORNA IL BLOCCO PRODUCT DETAIL
                         composable(
                             route = Screen.ProductDetail.route,
                             arguments = listOf(navArgument("productId") { type = NavType.StringType })
@@ -77,15 +80,68 @@ class MainActivity : ComponentActivity() {
 
                             ProductDetailScreen(
                                 productId = productId,
-                                onBackClick = {
-                                    // Torna indietro
-                                    navController.popBackStack()
+                                onBackClick = { navController.popBackStack() },
+
+                                // QUI LA MODIFICA: Quando clicchi la freccia della macchinetta
+                                onMachineSelect = { machineId ->
+                                    if (productId != null) {
+                                        navController.navigate(Screen.PurchaseOptions.createRoute(productId, machineId))
+                                    }
                                 },
-                                onMachineClick = { machineId ->
-                                    // Qui in futuro andremo alla pagina di acquisto specifica
-                                    // Per ora torniamo alla mappa o facciamo un print
-                                    println("Hai cliccato la macchinetta: $machineId")
-                                    // Esempio: navController.navigate(Screen.Map.route)
+
+                                onMachineInfoClick = { machineId ->
+                                    // Per ora non fa nulla o stampa un log
+                                    println("Info macchinetta: $machineId")
+                                }
+                            )
+                        }
+
+// 1. AGGIORNA PURCHASE OPTIONS (Per navigare alla conferma)
+                        composable(
+                            route = Screen.PurchaseOptions.route,
+                            // ... arguments uguali a prima ...
+                        ) { backStackEntry ->
+                            val pId = backStackEntry.arguments?.getString("productId")
+                            val mId = backStackEntry.arguments?.getString("machineId")
+
+                            PurchaseOptionsScreen(
+                                productId = pId, machineId = mId,
+                                onBackClick = { navController.popBackStack() },
+                                // QUI I COLLEGAMENTI NUOVI:
+                                onConfirmPurchase = {
+                                    if (pId != null && mId != null) {
+                                        navController.navigate(Screen.Confirmation.createRoute(pId, mId, isRent = false))
+                                    }
+                                },
+                                onConfirmRent = {
+                                    if (pId != null && mId != null) {
+                                        navController.navigate(Screen.Confirmation.createRoute(pId, mId, isRent = true))
+                                    }
+                                }
+                            )
+                        }
+
+// 2. AGGIUNGI LA NUOVA ROTTA DI CONFERMA
+                        composable(
+                            route = Screen.Confirmation.route,
+                            arguments = listOf(
+                                navArgument("pId") { type = NavType.StringType },
+                                navArgument("mId") { type = NavType.StringType },
+                                navArgument("isRent") { type = NavType.BoolType } // Parametro booleano
+                            )
+                        ) { backStackEntry ->
+                            val pId = backStackEntry.arguments?.getString("pId")
+                            val mId = backStackEntry.arguments?.getString("mId")
+                            val isRent = backStackEntry.arguments?.getBoolean("isRent") ?: false
+
+                            ConfirmationScreen(
+                                productId = pId,
+                                machineId = mId,
+                                isRent = isRent,
+                                onBackClick = { navController.popBackStack() },
+                                onFinalConfirmClick = {
+                                    // PROSSIMO STEP: Qui chiameremo la funzione che genera il codice e paga!
+                                    println("CLICK FINALE! Rent: $isRent")
                                 }
                             )
                         }

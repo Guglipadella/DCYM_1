@@ -2,9 +2,11 @@ package it.polito.did.dcym.ui.screens.detail
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -15,31 +17,54 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.polito.did.dcym.R
 import it.polito.did.dcym.data.model.Machine
+import it.polito.did.dcym.data.model.Product
 import it.polito.did.dcym.ui.components.BottomNavBar
 
-@OptIn(ExperimentalMaterial3Api::class)
+// 1. SCREEN INTELLIGENTE
 @Composable
 fun ProductDetailScreen(
     productId: String?,
     onBackClick: () -> Unit,
-    onMachineClick: (String) -> Unit,
+    onMachineSelect: (String) -> Unit, // Clic sulla freccia (va alla scelta acquisto)
+    onMachineInfoClick: (String) -> Unit, // Clic sul nome (va alle info macchinetta - futuro)
     viewModel: ProductDetailViewModel = viewModel()
 ) {
     LaunchedEffect(productId) {
         productId?.toIntOrNull()?.let { viewModel.loadProductData(it) }
     }
-
     val uiState by viewModel.uiState.collectAsState()
-    val product = uiState.product
 
+    ProductDetailContent(
+        product = uiState.product,
+        availableMachines = uiState.availableMachines,
+        isLoading = uiState.isLoading,
+        onBackClick = onBackClick,
+        onMachineSelect = onMachineSelect,
+        onMachineInfoClick = onMachineInfoClick
+    )
+}
+
+// 2. CONTENUTO GRAFICO
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProductDetailContent(
+    product: Product?,
+    availableMachines: List<Machine>,
+    isLoading: Boolean,
+    onBackClick: () -> Unit,
+    onMachineSelect: (String) -> Unit,
+    onMachineInfoClick: (String) -> Unit
+) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -49,16 +74,13 @@ fun ProductDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFFF3F0F9)
-                )
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFFF3F0F9))
             )
         },
         bottomBar = { BottomNavBar() },
         containerColor = Color(0xFFF3F0F9)
     ) { paddingValues ->
-
-        if (uiState.isLoading || product == null) {
+        if (isLoading || product == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
@@ -70,130 +92,61 @@ fun ProductDetailScreen(
                     .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. TITOLO PRODOTTO
+                // TITOLO
                 item {
-                    Text(
-                        text = product.name,
-                        fontSize = 22.sp, // Leggermente più grande
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 16.dp)
-                    )
+                    Text(product.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 16.dp))
                 }
 
-                // 2. IMMAGINE GRANDE (MODIFICATA)
+                // IMMAGINE
                 item {
+                    val context = LocalContext.current
+                    val imgRes = remember(product.imageResName) {
+                        val id = context.resources.getIdentifier(product.imageResName, "drawable", context.packageName)
+                        if (id != 0) id else R.drawable.ic_logo_png_dcym
+                    }
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(24.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(250.dp) // Aumentata l'altezza della card
-                            .padding(bottom = 24.dp),
-                        elevation = CardDefaults.cardElevation(0.dp)
+                        modifier = Modifier.fillMaxWidth().height(250.dp).padding(bottom = 24.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Image(
-                                painter = painterResource(id = viewModel.getProductImageRes(product.imageResName)),
-                                contentDescription = product.name,
+                                painter = painterResource(id = imgRes),
+                                contentDescription = null,
                                 contentScale = ContentScale.Fit,
-                                modifier = Modifier
-                                    .fillMaxSize() // Riempie lo spazio disponibile
-                                    .padding(16.dp) // Padding ridotto per farla più grande
+                                modifier = Modifier.fillMaxSize().padding(16.dp)
                             )
                         }
                     }
                 }
 
-                // 3. DESCRIZIONE
+                // INFO BASE
                 item {
-                    Text(
-                        text = "Informazioni su questo articolo",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(bottom = 8.dp).fillMaxWidth(),
-                        textAlign = TextAlign.Start
-                    )
-                    Text(
-                        text = product.description,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Start,
-                        lineHeight = 20.sp,
-                        modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth()
-                    )
+                    Text("Informazioni", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+                    Text(product.description, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp))
                 }
 
-                // 4. COSTI
+                // LISTA MACCHINETTE
                 item {
-                    Text(
-                        text = "Costo",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(bottom = 12.dp).fillMaxWidth(),
-                        textAlign = TextAlign.Start
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        PriceItem(R.drawable.ic_buy, "acquisto", product.pricePurchase)
-                        Spacer(modifier = Modifier.width(24.dp))
-                        if (product.priceRent != null) {
-                            PriceItem(R.drawable.ic_rent, "noleggio", product.priceRent)
-                        }
-                    }
+                    Text("Disponibile in:", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
                 }
 
-                // 5. LISTA MACCHINETTE (Con Titolo di Debug)
-                item {
-                    Text(
-                        text = "Disponibile in:", // Titolo aggiunto
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(bottom = 12.dp).fillMaxWidth(),
-                        textAlign = TextAlign.Start
-                    )
-                }
-
-                if (uiState.availableMachines.isEmpty()) {
-                    item {
-                        Text("Nessuna macchinetta disponibile al momento.", color = Color.Gray, modifier = Modifier.padding(bottom = 24.dp))
-                    }
+                if (availableMachines.isEmpty()) {
+                    item { Text("Nessuna macchinetta disponibile.", color = Color.Gray) }
                 } else {
-                    items(uiState.availableMachines) { machine ->
+                    items(availableMachines) { machine ->
                         MachineAvailabilityCard(
                             machine = machine,
                             productId = product.id,
-                            onClick = { onMachineClick(machine.id) }
+                            onActionClick = { onMachineSelect(machine.id) }, // Freccia
+                            onInfoClick = { onMachineInfoClick(machine.id) } // Nome
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
-
                 item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
-    }
-}
-
-// ... (Le funzioni PriceItem e MachineAvailabilityCard rimangono uguali, non serve ricopiarle se le hai già) ...
-@Composable
-fun PriceItem(iconRes: Int, label: String, price: Double) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            painter = painterResource(id = iconRes),
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = Color.Black
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = "$label: ${price.toInt()} €",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp
-        )
     }
 }
 
@@ -201,12 +154,14 @@ fun PriceItem(iconRes: Int, label: String, price: Double) {
 fun MachineAvailabilityCard(
     machine: Machine,
     productId: Int,
-    onClick: () -> Unit
+    onActionClick: () -> Unit,
+    onInfoClick: () -> Unit
 ) {
     val stock = machine.getStockForProduct(productId)
+    // Placeholder per la distanza e l'indirizzo (presi dal modello o statici per ora)
+    val distance = "100 m"
 
     Card(
-        onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth(),
@@ -219,7 +174,12 @@ fun MachineAvailabilityCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            // PARTE SINISTRA: Cliccabile per INFO MACCHINETTA
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onInfoClick() } // Clicca qui per info macchinetta
+            ) {
                 Text(
                     text = machine.name,
                     fontWeight = FontWeight.Bold,
@@ -227,32 +187,36 @@ fun MachineAvailabilityCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "$stock Disponibili",
+                    text = "$stock Disponibili • $distance",
                     fontSize = 13.sp,
                     color = Color.Gray
                 )
             }
 
+            // PARTE DESTRA: Icone e Azione (Link + Freccia)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "100 m",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.width(12.dp))
 
-                Box(
+                // Icona Link Spezzato (Non connesso)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_link_broken), // Assicurati di averla importata
+                    contentDescription = "Not Connected",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Gray
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Tasto Freccia (Azione Principale)
+                IconButton(
+                    onClick = onActionClick,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFEBEBEB)),
-                    contentAlignment = Alignment.Center
+                        .background(Color(0xFFEBEBEB), RoundedCornerShape(8.dp))
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_placeholder_vending_machine),
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = Color(0xFFC4C4C4)
+                        painter = painterResource(id = R.drawable.ic_arrow_right), // Assicurati di averla importata
+                        contentDescription = "Go",
+                        tint = Color.Black
                     )
                 }
             }
