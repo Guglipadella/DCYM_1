@@ -2,7 +2,9 @@ package it.polito.did.dcym.ui.screens.detail
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,13 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,14 +31,19 @@ import it.polito.did.dcym.R
 import it.polito.did.dcym.data.model.Machine
 import it.polito.did.dcym.data.model.Product
 import it.polito.did.dcym.ui.components.BottomNavBar
+import it.polito.did.dcym.ui.components.BottomTab
+import it.polito.did.dcym.ui.components.NavBarMode
+import it.polito.did.dcym.ui.theme.AppColors
 
-// 1. SCREEN INTELLIGENTE
+// 1) SCREEN
 @Composable
 fun ProductDetailScreen(
     productId: String?,
     onBackClick: () -> Unit,
-    onMachineSelect: (String) -> Unit, // Clic sulla freccia (va alla scelta acquisto)
-    onMachineInfoClick: (String) -> Unit, // Clic sul nome (va alle info macchinetta - futuro)
+    onMachineSelect: (String) -> Unit,
+    onMachineInfoClick: (String) -> Unit,
+    onGoToHomeChoice: () -> Unit = {},
+    onGoToCatalog: () -> Unit = {},
     viewModel: ProductDetailViewModel = viewModel()
 ) {
     LaunchedEffect(productId) {
@@ -50,11 +57,13 @@ fun ProductDetailScreen(
         isLoading = uiState.isLoading,
         onBackClick = onBackClick,
         onMachineSelect = onMachineSelect,
-        onMachineInfoClick = onMachineInfoClick
+        onMachineInfoClick = onMachineInfoClick,
+        onGoToHomeChoice = onGoToHomeChoice,
+        onGoToCatalog = onGoToCatalog
     )
 }
 
-// 2. CONTENUTO GRAFICO
+// 2) UI
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailContent(
@@ -63,93 +72,277 @@ fun ProductDetailContent(
     isLoading: Boolean,
     onBackClick: () -> Unit,
     onMachineSelect: (String) -> Unit,
-    onMachineInfoClick: (String) -> Unit
+    onMachineInfoClick: (String) -> Unit,
+    onGoToHomeChoice: () -> Unit,
+    onGoToCatalog: () -> Unit
 ) {
+    val bg = MaterialTheme.colorScheme.background
+
     Scaffold(
+        containerColor = bg,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Disponibilità prodotto", fontSize = 18.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFFF3F0F9))
-            )
-        },
-        bottomBar = { BottomNavBar() },
-        containerColor = Color(0xFFF3F0F9)
-    ) { paddingValues ->
-        if (isLoading || product == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            LazyColumn(
+            // Titolo centrato anche con icona a sinistra
+            Box(
                 modifier = Modifier
-                    .padding(paddingValues)
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth()
+                    .background(Color.Transparent)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
-                // TITOLO
-                item {
-                    Text(product.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 16.dp))
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Indietro",
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
                 }
 
-                // IMMAGINE
-                item {
-                    val context = LocalContext.current
-                    val imgRes = remember(product.imageResName) {
-                        val id = context.resources.getIdentifier(product.imageResName, "drawable", context.packageName)
-                        if (id != 0) id else R.drawable.ic_logo_png_dcym
-                    }
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(24.dp),
-                        modifier = Modifier.fillMaxWidth().height(250.dp).padding(bottom = 24.dp)
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Image(
-                                painter = painterResource(id = imgRes),
-                                contentDescription = null,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize().padding(16.dp)
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = "Disponibilità prodotto",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+        }
+,
+        bottomBar = {
+            BottomNavBar(
+                mode = NavBarMode.PRODUCT_FLOW,
+                selectedTab = BottomTab.HOME,
+                onQrClick = onGoToHomeChoice,
+                onHomeClick = onGoToCatalog
+            )
+        }
+    ) { paddingValues ->
 
-                // INFO BASE
-                item {
-                    Text("Informazioni", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
-                    Text(product.description, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp))
-                }
+        if (isLoading || product == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(bg)
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+            return@Scaffold
+        }
 
-                // LISTA MACCHINETTE
-                item {
-                    Text("Disponibile in:", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
-                }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(bg)
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
 
-                if (availableMachines.isEmpty()) {
-                    item { Text("Nessuna macchinetta disponibile.", color = Color.Gray) }
-                } else {
-                    items(availableMachines) { machine ->
-                        MachineAvailabilityCard(
-                            machine = machine,
-                            productId = product.id,
-                            onActionClick = { onMachineSelect(machine.id) }, // Freccia
-                            onInfoClick = { onMachineInfoClick(machine.id) } // Nome
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
+            item {
+                ProductTitleCard(product = product)
+            }
+
+            item {
+                ProductImageCard(product = product)
+            }
+
+            item {
+                InfoCard(
+                    title = "Informazioni",
+                    // costo coerente: pill gialla + descrizione sotto
+                    topPillText = "Costo: ${product.pricePurchase.toInt()}€",
+                    body = product.description
+                )
+            }
+
+            item {
+                SectionTitle(text = "Disponibile in")
+            }
+
+            if (availableMachines.isEmpty()) {
+                item {
+                    InfoCard(
+                        title = "Nessuna macchinetta trovata",
+                        body = "Al momento questo prodotto non risulta disponibile in nessun distributore."
+                    )
                 }
-                item { Spacer(modifier = Modifier.height(80.dp)) }
+            } else {
+                items(availableMachines, key = { it.id }) { machine ->
+                    MachineAvailabilityCard(
+                        machine = machine,
+                        productId = product.id,
+                        onActionClick = { onMachineSelect(machine.id) },
+                        onInfoClick = { onMachineInfoClick(machine.id) }
+                    )
+                }
             }
         }
     }
 }
 
+/* -----------------------------
+   HEADER STILE “CARD”
+   ----------------------------- */
+@Composable
+private fun DetailHeader(
+    title: String,
+    onBackClick: () -> Unit
+) {
+    val outline = MaterialTheme.colorScheme.outline
+    val paper = MaterialTheme.colorScheme.surface
+    val text = MaterialTheme.colorScheme.onSurface
+
+    Box(
+        modifier = Modifier
+
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Indietro",
+                    tint = text
+                )
+            }
+
+            Text(
+                text = title,
+                fontWeight = FontWeight.Black,
+                fontSize = 16.sp,
+                color = text,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+        }
+    }
+}
+
+/* -----------------------------
+   TITOLO PRODOTTO (CENTRATO + PIU’ GRANDE)
+   ----------------------------- */
+@Composable
+private fun ProductTitleCard(product: Product) {
+    val displayName = if (product.name.trim().equals("Calcolatrice", ignoreCase = true))
+        "Calcolatrice"
+    else
+        product.name
+
+    Text(
+        text = displayName,
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Black,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp)
+            .wrapContentWidth(Alignment.CenterHorizontally),
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+/* -----------------------------
+   IMMAGINE (NO QUADRATO BIANCO “PIENO”)
+   ----------------------------- */
+@Composable
+private fun ProductImageCard(product: Product) {
+    val outline = MaterialTheme.colorScheme.outline
+    val paper = MaterialTheme.colorScheme.surface
+
+    val context = LocalContext.current
+    val imgRes = remember(product.imageResName) {
+        val id = context.resources.getIdentifier(product.imageResName, "drawable", context.packageName)
+        if (id != 0) id else R.drawable.ic_logo_png_dcym
+    }
+
+    // contenitore "carta" leggero (non bianco pieno enorme)
+    Box(
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = imgRes),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+/* -----------------------------
+   CARD INFO (con pill gialla opzionale)
+   ----------------------------- */
+@Composable
+private fun InfoCard(
+    title: String,
+    body: String,
+    topPillText: String? = null
+) {
+    val outline = MaterialTheme.colorScheme.outline
+    val paper = MaterialTheme.colorScheme.surface
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = paper),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, outline, RoundedCornerShape(20.dp))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (topPillText != null) {
+                    StickerPill(
+                        text = topPillText,
+                        bg = MaterialTheme.colorScheme.secondary,
+                        textColor = MaterialTheme.colorScheme.onSecondary
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                text = body,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        fontWeight = FontWeight.Black,
+        fontSize = 16.sp,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.padding(top = 2.dp, start = 2.dp)
+    )
+}
+
+/* -----------------------------
+   CARD MACCHINETTA (più ordinata)
+   ----------------------------- */
 @Composable
 fun MachineAvailabilityCard(
     machine: Machine,
@@ -157,69 +350,137 @@ fun MachineAvailabilityCard(
     onActionClick: () -> Unit,
     onInfoClick: () -> Unit
 ) {
+    val outline = MaterialTheme.colorScheme.outline
+    val paper = MaterialTheme.colorScheme.surface
+
+    val badgeOrange = MaterialTheme.colorScheme.tertiary
+    val badgeOrangeText = MaterialTheme.colorScheme.onTertiary
+
+    val badgeGreen = MaterialTheme.colorScheme.secondary
+    val badgeGreenText = MaterialTheme.colorScheme.onSecondary
+
     val stock = machine.getStockForProduct(productId)
-    // Placeholder per la distanza e l'indirizzo (presi dal modello o statici per ora)
     val distance = "100 m"
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(0.dp),
+        colors = CardDefaults.cardColors(containerColor = paper),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, outline, RoundedCornerShape(18.dp))
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // PARTE SINISTRA: Cliccabile per INFO MACCHINETTA
+
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onInfoClick() } // Clicca qui per info macchinetta
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onInfoClick() }
             ) {
                 Text(
                     text = machine.name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontWeight = FontWeight.Black,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StickerPill(
+                        text = if (stock == 1) "solo 1 disponibile" else "$stock disponibili",
+                        bg = AppColors.GreenPastelMuted,
+                        textColor = badgeGreenText
+                    )
+                    StickerPill(
+                        text = distance,
+                        bg = badgeOrange,
+                        textColor = badgeOrangeText
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+
                 Text(
-                    text = "$stock Disponibili • $distance",
-                    fontSize = 13.sp,
-                    color = Color.Gray
+                    text = "Tocca per info distributore",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                 )
             }
 
-            // PARTE DESTRA: Icone e Azione (Link + Freccia)
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(10.dp))
 
-                // Icona Link Spezzato (Non connesso)
+            // destra: stato + CTA (affiancati)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_link_broken), // Assicurati di averla importata
-                    contentDescription = "Not Connected",
+                    painter = painterResource(id = R.drawable.ic_link_broken),
+                    contentDescription = "Offline",
                     modifier = Modifier.size(20.dp),
-                    tint = Color.Gray
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                 )
 
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Tasto Freccia (Azione Principale)
-                IconButton(
-                    onClick = onActionClick,
+                Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(Color(0xFFEBEBEB), RoundedCornerShape(8.dp))
+                        .size(44.dp)
+                        .shadow(6.dp, RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(14.dp))
+                        .border(2.dp, outline, RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { onActionClick() },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_arrow_right), // Assicurati di averla importata
-                        contentDescription = "Go",
-                        tint = Color.Black
+                        painter = painterResource(id = R.drawable.ic_arrow_right),
+                        contentDescription = "Vai",
+                        tint = MaterialTheme.colorScheme.onSecondary,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
+
         }
+    }
+}
+
+/* -----------------------------
+   PILL “STICKER”
+   ----------------------------- */
+@Composable
+private fun StickerPill(
+    text: String,
+    bg: Color,
+    textColor: Color
+) {
+    val outline = MaterialTheme.colorScheme.outline
+
+    Box(
+        modifier = Modifier
+            .shadow(3.dp, CircleShape)
+            .background(bg, CircleShape)
+            .border(2.dp, outline, CircleShape)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Black,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

@@ -26,6 +26,8 @@ import it.polito.did.dcym.ui.screens.catalog.CatalogScreen
 import it.polito.did.dcym.ui.screens.detail.ProductDetailScreen
 import it.polito.did.dcym.ui.screens.purchase.PurchaseOptionsScreen
 import it.polito.did.dcym.ui.screens.confirmation.ConfirmationScreen
+import it.polito.did.dcym.ui.screens.profile.ProfileScreen
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,8 +48,10 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.Home.route) {
                             HomeScreen(
                                 onFindProductClick = { navController.navigate(Screen.Catalog.route) },
-                                onFindMachineClick = { navController.navigate(Screen.Map.route) }
+                                onFindMachineClick = { navController.navigate(Screen.Map.route) },
+                                onEditProfileClick = { navController.navigate(Screen.Profile.route) } // <-- nuovo
                             )
+
                         }
 
                         // --- MAPPA (Placeholder per ora) ---
@@ -64,11 +68,28 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.Catalog.route) {
                             CatalogScreen(
                                 onProductClick = { productId ->
-                                    // Naviga al dettaglio passando l'ID (convertito in String)
                                     navController.navigate(Screen.ProductDetail.createRoute(productId.toString()))
+                                },
+                                onGoToHomeChoice = {
+                                    navController.navigate(Screen.Home.route) {
+                                        launchSingleTop = true
+                                    }
+                                },
+                                onGoToCatalog = {
+                                    navController.navigate(Screen.Catalog.route) {
+                                        launchSingleTop = true
+                                    }
                                 }
                             )
                         }
+                        // --- PROFILO ---
+                        composable(Screen.Profile.route) {
+                            ProfileScreen(
+                                onGoToHomeChoice = { navController.navigate(Screen.Home.route) },
+                                onGoToCatalog = { navController.navigate(Screen.Catalog.route) }
+                            )
+                        }
+
 
                         // --- DETTAGLIO PRODOTTO (MODIFICATO) ---
                         // 1. AGGIORNA IL BLOCCO PRODUCT DETAIL

@@ -1,11 +1,13 @@
 package it.polito.did.dcym.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -13,13 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -27,73 +25,167 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import it.polito.did.dcym.R
 
-// Colori presi dal design
-private val BarColor = Color.White
-private val FabColor = Color(0xFFD9D9D9) // Grigio chiaro del cerchio QR
-private val SelectedColor = Color.Black
-private val UnselectedColor = Color.Gray // O un colore più scuro se preferisci
-private val IndicatorColor = Color(0xFFE0D4FC) // Lilla per lo sfondo icona attiva
+/**
+ * Due navbar diverse in base al percorso scelto all'inizio (come PDF)
+ */
+enum class NavBarMode { PRODUCT_FLOW, MACHINE_FLOW }
+
+/**
+ * Tab selezionata SOLO per evidenziare l’icona (UI). Non è logica di navigazione.
+ */
+enum class BottomTab { HOME, HISTORY, MACHINES, PROFILE, HELP, CATALOGO }
+
+private data class NavItem(
+    val tab: BottomTab,
+    val label: String,
+    val iconRes: Int,
+    val onClick: () -> Unit
+)
+
+private data class NavBarConfig(
+    val left1: NavItem,
+    val left2: NavItem,
+    val right1: NavItem,
+    val right2: NavItem
+)
 
 @Composable
 fun BottomNavBar(
+    mode: NavBarMode = NavBarMode.PRODUCT_FLOW,
+    selectedTab: BottomTab = BottomTab.CATALOGO,
     onHomeClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onQrClick: () -> Unit = {},
     onMachinesClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
-    // Altezza totale della barra
+    // Layout
     val barHeight = 80.dp
-    // Quanto il bottone QR esce fuori dalla barra (verso l'alto)
     val fabOffset = 30.dp
-    // Dimensione del bottone QR
     val fabSize = 64.dp
+    val barShape = CurvedBottomBarShape(fabSize.value + 16f)
+
+    // Colori dal Theme (che ora usa la tua palette)
+    val barColor = MaterialTheme.colorScheme.background      // “carta”
+    val outline = MaterialTheme.colorScheme.outline          // magenta scuro
+    val selectedColor = MaterialTheme.colorScheme.onSurface  // magenta scuro
+    val unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+
+    // Pill selezione (giallo pastello)
+    val indicator = MaterialTheme.colorScheme.secondary
+
+    // FAB (viola intenso)
+    val fabColor = MaterialTheme.colorScheme.primary
+    val fabIconTint = MaterialTheme.colorScheme.onPrimary
+    val isCenterSelected = selectedTab == BottomTab.HOME
+    val fabBorderColor = if (isCenterSelected) selectedColor else outline
+    val fabElevation = if (isCenterSelected) 14.dp else 8.dp
+
+
+    val config = when (mode) {
+        NavBarMode.PRODUCT_FLOW -> NavBarConfig(
+            left1 = NavItem(
+                tab = BottomTab.PROFILE,
+                label = "profilo",
+                iconRes = R.drawable.ic_profile,          // <-- icona HOME del PDF
+                onClick = onProfileClick
+            ),
+            left2 = NavItem(
+                tab = BottomTab.HISTORY,
+                label = "Acquisti",
+                iconRes = R.drawable.ic_storico,       // <-- icona STORICO del PDF
+                onClick = onHistoryClick
+            ),
+            right1 = NavItem(
+                tab = BottomTab.CATALOGO,
+                label = "catalogo",
+                iconRes = R.drawable.ic_store,
+                onClick = onHomeClick // per ora lo riusiamo come callback "vai al catalogo"
+            ),
+            right2 = NavItem(
+                tab = BottomTab.HELP,
+                label = "aiuto",
+                iconRes = R.drawable.ic_help,       // <-- icona PROFILO del PDF
+                onClick = onProfileClick
+            )
+        )
+
+        NavBarMode.MACHINE_FLOW -> NavBarConfig(
+            left1 = NavItem(
+                tab = BottomTab.MACHINES,
+                label = "Mappa",
+                iconRes = R.drawable.ic_distributori,  // <-- se hai un'icona mappa, mettila qui (es. ic_map)
+                onClick = onMachinesClick
+            ),
+            left2 = NavItem(
+                tab = BottomTab.HISTORY,
+                label = "Storico",
+                iconRes = R.drawable.ic_storico,
+                onClick = onHistoryClick
+            ),
+            right1 = NavItem(
+                tab = BottomTab.HOME,
+                label = "Prodotti",
+                iconRes = R.drawable.ic_home,          // <-- se hai un’icona “prodotti”, mettila qui (es. ic_catalog)
+                onClick = onHomeClick
+            ),
+            right2 = NavItem(
+                tab = BottomTab.PROFILE,
+                label = "Profilo",
+                iconRes = R.drawable.ic_profile,
+                onClick = onProfileClick
+            )
+        )
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(barHeight + fabOffset) // Spazio extra per il bottone che esce
-        , contentAlignment = Alignment.BottomCenter
+            .height(barHeight + fabOffset),
+        contentAlignment = Alignment.BottomCenter
     ) {
-
-        // 1. LO SFONDO DELLA BARRA CON IL "TAGLIO" (Curva)
+        // 1) Fondo barra + ombra
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(barHeight)
-                .shadow(
-                    elevation = 8.dp, // Ombra sotto la barra
-                    shape = CurvedBottomBarShape(fabSize.value + 16f) // +16f per dare aria attorno al cerchio
-                )
-                .background(
-                    color = BarColor,
-                    shape = CurvedBottomBarShape(fabSize.value + 16f)
-                )
+                .shadow(10.dp, barShape)
+                .background(barColor, barShape)
         )
 
-        // 2. IL BOTTONE QR GALLEGGIANTE (FAB)
-        // Lo posizioniamo in alto al centro
+        // 1b) Bordo (outline) sopra la barra
         Box(
             modifier = Modifier
-                .align(Alignment.TopCenter) // Si allinea in alto nel Box padre
-                .offset(y = 10.dp) // Piccolo aggiustamento fine
+                .fillMaxWidth()
+                .height(barHeight)
+                .align(Alignment.BottomCenter)
+                .border(2.dp, outline, barShape)
+        )
+
+        // 2) FAB centrale
+        Box(
+
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = 10.dp)
                 .size(fabSize)
-                .shadow(4.dp, CircleShape)
-                .background(FabColor, CircleShape)
+                .shadow(12.dp, CircleShape)
+                .background(fabColor, CircleShape)
+                .border(2.dp, outline, CircleShape)
                 .clip(CircleShape)
                 .clickable(onClick = onQrClick),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_qr_code),
-                contentDescription = "QR Code",
+                painter = painterResource(R.drawable.ic_home),
+
+                contentDescription = "CATALOGO",
                 modifier = Modifier.size(32.dp),
-                tint = Color.Black // O Unspecified se l'icona ha già i suoi colori
+                tint = fabIconTint
             )
         }
 
-        // 3. LE ICONE (HOME, STORICO, MACCHINETTE, PROFILO)
-        // Usiamo una Row che occupa solo la parte bassa (la barra bianca)
+        // 3) Items
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -101,77 +193,97 @@ fun BottomNavBar(
                 .align(Alignment.BottomCenter),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Lato Sinistro
             NavBarItem(
-                iconRes = R.drawable.ic_home,
-                label = "Home",
-                isSelected = true, // Logica da collegare allo stato vero poi
-                onClick = onHomeClick,
+                iconRes = config.left1.iconRes,
+                label = config.left1.label,
+                isSelected = selectedTab == config.left1.tab,
+                selectedColor = selectedColor,
+                unselectedColor = unselectedColor,
+                indicatorColor = indicator,
+                outlineColor = outline,
+                onClick = config.left1.onClick,
                 modifier = Modifier.weight(1f)
             )
 
             NavBarItem(
-                iconRes = R.drawable.ic_storico,
-                label = "Storico",
-                isSelected = false,
-                onClick = onHistoryClick,
+                iconRes = config.left2.iconRes,
+                label = config.left2.label,
+                isSelected = selectedTab == config.left2.tab,
+                selectedColor = selectedColor,
+                unselectedColor = unselectedColor,
+                indicatorColor = indicator,
+                outlineColor = outline,
+                onClick = config.left2.onClick,
                 modifier = Modifier.weight(1f)
             )
 
-            // SPAZIO VUOTO AL CENTRO (Per il QR)
-            Spacer(modifier = Modifier.width(fabSize + 16.dp)) // Largo quanto il buco
+            Spacer(modifier = Modifier.width(fabSize + 16.dp))
 
-            // Lato Destro
             NavBarItem(
-                iconRes = R.drawable.ic_distributori,
-                label = "Macchinette", // Testo su due righe se troppo lungo?
-                isSelected = false,
-                onClick = onMachinesClick,
+                iconRes = config.right1.iconRes,
+                label = config.right1.label,
+                isSelected = selectedTab == config.right1.tab,
+                selectedColor = selectedColor,
+                unselectedColor = unselectedColor,
+                indicatorColor = indicator,
+                outlineColor = outline,
+                onClick = config.right1.onClick,
                 modifier = Modifier.weight(1f)
             )
 
             NavBarItem(
-                iconRes = R.drawable.ic_profile,
-                label = "Profilo",
-                isSelected = false,
-                onClick = onProfileClick,
+                iconRes = config.right2.iconRes,
+                label = config.right2.label,
+                isSelected = selectedTab == config.right2.tab,
+                selectedColor = selectedColor,
+                unselectedColor = unselectedColor,
+                indicatorColor = indicator,
+                outlineColor = outline,
+                onClick = config.right2.onClick,
                 modifier = Modifier.weight(1f)
             )
         }
     }
 }
 
-// COMPONENTE PER IL SINGOLO ELEMENTO DELLA BARRA
 @Composable
-fun NavBarItem(
+private fun NavBarItem(
     iconRes: Int,
     label: String,
     isSelected: Boolean,
+    selectedColor: androidx.compose.ui.graphics.Color,
+    unselectedColor: androidx.compose.ui.graphics.Color,
+    indicatorColor: androidx.compose.ui.graphics.Color,
+    outlineColor: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null // Rimuove l'effetto ripple grigio al click
-            ) { onClick() },
+        modifier = modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null
+        ) { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Indicatore di selezione (opzionale, come da design Material)
+        // “pill” selezionata stile sticker (con bordo + ombra)
+        val pillModifier = if (isSelected) {
+            Modifier
+                .shadow(4.dp, CircleShape)
+                .background(indicatorColor, CircleShape)
+                .border(2.dp, outlineColor, CircleShape)
+                .padding(horizontal = 14.dp, vertical = 5.dp)
+        } else Modifier
+
         Box(
             contentAlignment = Alignment.Center,
-            modifier = if (isSelected) Modifier
-                .background(IndicatorColor, CircleShape)
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-            else Modifier
+            modifier = pillModifier
         ) {
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = label,
                 modifier = Modifier.size(24.dp),
-                tint = if (isSelected) SelectedColor else UnselectedColor
+                tint = if (isSelected) selectedColor else unselectedColor
             )
         }
 
@@ -180,53 +292,42 @@ fun NavBarItem(
         Text(
             text = label,
             fontSize = 11.sp,
-            color = if (isSelected) SelectedColor else UnselectedColor,
+            color = if (isSelected) selectedColor else unselectedColor,
             lineHeight = 12.sp
         )
     }
 }
 
 // -----------------------------------------------------------
-// MATEMATICA PER DISEGNARE LA CURVA (Il "Cutout")
+// Curva cutout invariata
 // -----------------------------------------------------------
 class CurvedBottomBarShape(private val circleRadius: Float) : Shape {
     override fun createOutline(
-        size: Size,
+        size: androidx.compose.ui.geometry.Size,
         layoutDirection: LayoutDirection,
         density: Density
-    ): Outline {
-        return Outline.Generic(path = drawCurvedPath(size, circleRadius))
-    }
+    ): Outline = Outline.Generic(path = drawCurvedPath(size, circleRadius))
 
-    private fun drawCurvedPath(size: Size, radius: Float): Path {
+    private fun drawCurvedPath(size: androidx.compose.ui.geometry.Size, radius: Float): Path {
         return Path().apply {
             val centerX = size.width / 2f
 
-            // Inizia in alto a sinistra
             moveTo(0f, 0f)
-
-            // Disegna linea fino all'inizio della curva sinistra
             lineTo(centerX - radius * 1.2f, 0f)
 
-            // Disegna la curva verso il basso (Cubic Bezier)
-            // Punto di controllo 1, Punto di controllo 2, Punto finale
             cubicTo(
-                centerX - radius * 0.8f, 0f, // Controllo 1 (inizio curva morbida)
-                centerX - radius * 0.8f, radius * 0.8f, // Controllo 2 (giù)
-                centerX, radius * 0.8f // Punto più basso (centro)
+                centerX - radius * 0.8f, 0f,
+                centerX - radius * 0.8f, radius * 0.8f,
+                centerX, radius * 0.8f
             )
 
-            // Disegna la curva verso l'alto (risalita)
             cubicTo(
-                centerX + radius * 0.8f, radius * 0.8f, // Controllo 1
-                centerX + radius * 0.8f, 0f, // Controllo 2
-                centerX + radius * 1.2f, 0f // Fine curva
+                centerX + radius * 0.8f, radius * 0.8f,
+                centerX + radius * 0.8f, 0f,
+                centerX + radius * 1.2f, 0f
             )
 
-            // Continua fino alla fine a destra
             lineTo(size.width, 0f)
-
-            // Chiudi il rettangolo
             lineTo(size.width, size.height)
             lineTo(0f, size.height)
             close()

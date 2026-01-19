@@ -3,7 +3,12 @@ package it.polito.did.dcym.ui.screens.catalog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -20,6 +25,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -33,128 +40,273 @@ import it.polito.did.dcym.R
 import it.polito.did.dcym.data.model.Category
 import it.polito.did.dcym.data.model.Product
 import it.polito.did.dcym.ui.components.BottomNavBar
+import it.polito.did.dcym.ui.components.BottomTab
+import it.polito.did.dcym.ui.components.NavBarMode
+import it.polito.did.dcym.ui.theme.AppColors
 import kotlinx.coroutines.launch
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogScreen(
     onProductClick: (Int) -> Unit,
+    onGoToHomeChoice: () -> Unit,
+    onGoToCatalog: () -> Unit,
     viewModel: CatalogViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope() // Per lanciare azioni asincrone (scroll, snackbar)
+    val scope = rememberCoroutineScope()
 
-    // Stato per gestire lo scroll della griglia
     val gridState = rememberLazyGridState()
-
-    // Mostra il pulsante "Torna su" solo se abbiamo sceso un po' (indice > 0)
-    val showScrollToTop by remember {
-        derivedStateOf { gridState.firstVisibleItemIndex > 0 }
-    }
+    val showScrollToTop by remember { derivedStateOf { gridState.firstVisibleItemIndex > 0 } }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            CatalogTopBar(
-                searchText = uiState.searchQuery,
-                onSearchChange = { viewModel.onSearchQueryChange(it) }
-            )
+            // lasciamo solo spazio in alto (header lo gestiamo nel body)
+            Spacer(Modifier.height(0.dp))
         },
         bottomBar = {
-            // Aggiungiamo la Navbar qui
-            BottomNavBar()
+            BottomNavBar(
+                mode = NavBarMode.PRODUCT_FLOW,
+                selectedTab = BottomTab.CATALOGO,
+                onQrClick = onGoToHomeChoice, // FAB (matita) -> scelta percorso
+                onHomeClick = onGoToCatalog   // icona "catalogo" -> pagina prodotti
+            )
         },
         floatingActionButton = {
-            // Pulsante FRECCIA SU che compare/scompare
-            AnimatedVisibility(
-                visible = showScrollToTop,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
+            AnimatedVisibility(visible = showScrollToTop, enter = fadeIn(), exit = fadeOut()) {
                 FloatingActionButton(
-                    onClick = {
-                        scope.launch {
-                            gridState.animateScrollToItem(0) // Torna al primo elemento
-                        }
-                    },
-                    containerColor = Color(0xFFE0D4FC), // Lilla chiaro
-                    contentColor = Color.Black
+                    onClick = { scope.launch { gridState.animateScrollToItem(0) } },
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary
                 ) {
                     Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Torna su")
                 }
             }
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            // TITOLO CATEGORIE
-            Text(
-                text = "Categorie",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+
+        GraphPaperBackground {
+            Column(
                 modifier = Modifier
-                    .padding(vertical = 16.dp)
-                    .align(Alignment.CenterHorizontally)
-            )
-
-            // FILTRI (CHIPS)
-            FiltersRow(
-                selectedFilter = uiState.selectedFilter,
-                onFilterSelected = { viewModel.selectFilter(it) }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // GRIGLIA PRODOTTI
-            LazyVerticalGrid(
-                state = gridState, // Colleghiamo lo stato dello scroll
-                columns = GridCells.Fixed(3),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
+                    .padding(paddingValues)
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
             ) {
-                items(
-                    items = uiState.products,
-                    key = { product -> "${product.id}_${product.isFavorite}" } // <--- KEY COMPOSTA
-                ) { product ->
-                    // CALCOLA L'ID RISORSA QUI
-                    val context = LocalContext.current
-                    val imageResId = remember(product.imageResName) {
-                        context.resources.getIdentifier(product.imageResName, "drawable", context.packageName)
-                    }
-                    // Se imageResId è 0 (non trovata), usa un fallback
+                Spacer(Modifier.height(10.dp))
 
-                    ProductCard(
-                        product = product,
-                        // Passiamo l'ID calcolato invece di product.imageRes
-                        imageResId = if (imageResId != 0) imageResId else R.drawable.ic_logo_png_dcym,
-                        onClick = { onProductClick(product.id) },
-                        onFavoriteClick = {
-                            viewModel.toggleFavorite(product.id)
-                            scope.launch {
-                                if (!product.isFavorite) {
+                // HEADER "CARD"
+                CatalogHeaderCard(
+                    userName = "Mario",
+                    balanceText = "La tua paghetta: 20€",
+                    onProfileClick = { /* se vuoi: nav al profilo */ }
+                )
+
+                Spacer(Modifier.height(14.dp))
+
+                // SEZIONE RICERCA
+                Text(
+                    text = "Catalogo",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                CatalogSearchBar(
+                    searchText = uiState.searchQuery,
+                    onSearchChange = { viewModel.onSearchQueryChange(it) }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // CHIPS (senza titolo "Categorie")
+                FiltersRow(
+                    selectedFilter = uiState.selectedFilter,
+                    onFilterSelected = { viewModel.selectFilter(it) }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // GRIGLIA PRODOTTI
+                LazyVerticalGrid(
+                    state = gridState,
+                    columns = GridCells.Fixed(2),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(
+                        top = 10.dp,     // IMPORTANTISSIMO per non troncare il cuore
+                        bottom = 16.dp
+                    )
+                ) {
+                    items(
+                        items = uiState.products,
+                        key = { product -> "${product.id}_${product.isFavorite}" }
+                    ) { product ->
+                        val context = LocalContext.current
+                        val imageResId = remember(product.imageResName) {
+                            context.resources.getIdentifier(product.imageResName, "drawable", context.packageName)
+                        }
+
+                        ProductCard(
+                            product = product,
+                            imageResId = if (imageResId != 0) imageResId else R.drawable.ic_logo_png_dcym,
+                            onClick = { onProductClick(product.id) },
+                            onFavoriteClick = {
+                                viewModel.toggleFavorite(product.id)
+                                scope.launch {
                                     snackbarHostState.currentSnackbarData?.dismiss()
-                                    snackbarHostState.showSnackbar("Aggiunto ai preferiti!")
-                                } else {
-                                    snackbarHostState.currentSnackbarData?.dismiss()
-                                    snackbarHostState.showSnackbar("Rimosso dai preferiti")
+                                    snackbarHostState.showSnackbar(
+                                        if (!product.isFavorite) "Aggiunto ai preferiti!" else "Rimosso dai preferiti"
+                                    )
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/* -----------------------------
+   HEADER CARD
+   ----------------------------- */
+@Composable
+private fun CatalogHeaderCard(
+    userName: String,
+    balanceText: String,
+    onProfileClick: () -> Unit
+) {
+    val outline = MaterialTheme.colorScheme.outline
+    val paper = MaterialTheme.colorScheme.surface
+    val accent = MaterialTheme.colorScheme.secondary
 
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(18.dp))
+            .background(paper, RoundedCornerShape(18.dp))
+            .border(2.dp, outline, RoundedCornerShape(18.dp))
+            .padding(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Ciao $userName",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
+                Spacer(Modifier.height(4.dp))
+
+                Text(
+                    text = "Don't Call Your Mom!",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                // sticker paghetta
+                Box(
+                    modifier = Modifier
+                        .shadow(3.dp, CircleShape)
+                        .background(accent, CircleShape)
+                        .border(2.dp, outline, CircleShape)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = balanceText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSecondary
+                    )
+                }
+            }
+
+            // profilo grande a destra
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .shadow(6.dp, CircleShape)
+                    .background(paper, CircleShape)
+                    .border(2.dp, outline, CircleShape)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onProfileClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.user), // <-- user.png
+                    contentDescription = "Profilo",
+                    modifier = Modifier.fillMaxSize(),          // riempie il cerchio
+                    contentScale = ContentScale.Crop            // taglio “avatar”
+                )
+            }
+        }
+    }
+}
+
+/* -----------------------------
+   SEARCH BAR (più stretta)
+   ----------------------------- */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CatalogSearchBar(
+    searchText: String,
+    onSearchChange: (String) -> Unit
+) {
+    val outline = MaterialTheme.colorScheme.outline
+    val paper = MaterialTheme.colorScheme.surface
+
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        TextField(
+            value = searchText,
+            onValueChange = onSearchChange,
+            placeholder = { Text("cerca un prodotto") },
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(id = android.R.drawable.ic_menu_search),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .height(54.dp)
+                .shadow(3.dp, RoundedCornerShape(18.dp))
+                .border(2.dp, outline, RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(18.dp)),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = paper,
+                unfocusedContainerColor = paper,
+                disabledContainerColor = paper,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+            ),
+            maxLines = 1
+        )
+    }
+}
+
+/* -----------------------------
+   FILTRI “STICKER CHIPS”
+   ----------------------------- */
 @Composable
 fun FiltersRow(
     selectedFilter: CatalogFilter,
@@ -164,22 +316,54 @@ fun FiltersRow(
             Category.values().map { CatalogFilter.ByCategory(it) } +
             CatalogFilter.Favorites
 
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 5.dp)
+    ) {
         items(filters) { filter ->
             val isSelected = selectedFilter == filter
-            FilterChip(
+            StickerChip(
+                text = filter.label,
                 selected = isSelected,
-                onClick = { onFilterSelected(filter) },
-                label = { Text(filter.label) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = Color(0xFFE0D4FC),
-                    selectedLabelColor = Color.Black
-                )
+                onClick = { onFilterSelected(filter) }
             )
         }
     }
 }
 
+@Composable
+private fun StickerChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val outline = MaterialTheme.colorScheme.outline
+    val selectedBg = AppColors.VioletPastelMuted
+    val paper = MaterialTheme.colorScheme.surface
+
+    Box(
+        modifier = Modifier
+            .then(if (selected) Modifier.shadow(3.dp, CircleShape) else Modifier)
+            .background(if (selected) selectedBg else paper, CircleShape)
+            .border(2.dp, outline, CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
+            .padding(horizontal = 12.dp, vertical = 7.dp)
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (selected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+/* -----------------------------
+   CARD PRODOTTO (più compatta)
+   ----------------------------- */
 @Composable
 fun ProductCard(
     product: Product,
@@ -187,149 +371,181 @@ fun ProductCard(
     onClick: () -> Unit,
     onFavoriteClick: () -> Unit
 ) {
-    // 1. Box Padre: serve per sovrapporre il bottone alla card
-    // Aggiungiamo padding top ed end per "fare spazio" al bottone che esce,
-    // altrimenti verrebbe tagliato o si sovrapporrebbe alla card vicina.
+    val outline = MaterialTheme.colorScheme.outline
+    val paper = MaterialTheme.colorScheme.surface
+    val badge = AppColors.GreenPastelMuted
+    val badgeText = MaterialTheme.colorScheme.onTertiary
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, end = 8.dp) // Spazio extra per l'effetto "fuori bordo"
+            .padding(top = 2.dp, end = 2.dp)
     ) {
-        // 2. La Card del Prodotto (SOTTO)
         Card(
             onClick = onClick,
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = paper),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            shape = RoundedCornerShape(18.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.75f) // Leggermente più bassa per compensare il padding esterno
+                .aspectRatio(0.88f)
+                .border(2.dp, outline, RoundedCornerShape(18.dp))
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                    .padding(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Immagine
-                Image(
-                    painter = painterResource(id = imageResId),
-                    contentDescription = product.name,
+                // riga top: badge (se serve)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (product.priceRent != null) {
+                        Box(
+                            modifier = Modifier
+                                .shadow(2.dp, CircleShape)
+                                .background(badge, CircleShape)
+                                .border(2.dp, outline, CircleShape)
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = "Noleggiabile",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                color = badgeText
+                            )
+                        }
+                    } else {
+                        Spacer(Modifier.width(1.dp))
+                    }
+
+                    // spazio per "bilanciare" visivamente con il cuore esterno
+                    Spacer(Modifier.width(24.dp))
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(top = 16.dp), // Spazio dall'alto per non toccare il bordo
-                    contentScale = ContentScale.Fit
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = imageResId),
+                        contentDescription = product.name,
+                        modifier = Modifier
+                            .fillMaxWidth(0.78f)
+                            .fillMaxHeight(0.92f),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text = product.name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
-                // Testi (Nome e Prezzi)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height(4.dp))
+
+                val outline = MaterialTheme.colorScheme.outline
+                val priceBg = MaterialTheme.colorScheme.secondary
+                val priceText = MaterialTheme.colorScheme.onSecondary
+
+                Box(
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .shadow(2.dp, CircleShape)
+                        .background(priceBg, CircleShape)
+                        .border(2.dp, outline, CircleShape)
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
                     Text(
-                        text = product.name,
-                        fontWeight = FontWeight.Bold,
+                        text = "Costo: ${product.pricePurchase.toInt()}€",
                         fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        fontWeight = FontWeight.Black,
+                        color = priceText
                     )
-                    Text(
-                        text = "Acquisto: ${product.pricePurchase.toInt()} euro",
-                        fontSize = 10.sp,
-                        color = Color.Gray
-                    )
-                    if (product.priceRent != null) {
-                        Text(
-                            text = "Noleggio: ${product.priceRent.toInt()} euro",
-                            fontSize = 10.sp,
-                            color = Color.Gray
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
                 }
+
             }
         }
 
-        // 3. Il Bottone Cuore "Galleggiante" (SOPRA)
-        // Usiamo una Surface per fare il cerchio grigio di sfondo
+        // cuore “sticker”
         Surface(
             shape = CircleShape,
-            color = Color(0xFFEBEBEB), // Grigio chiaro come da immagine
-            shadowElevation = 2.dp, // Una piccola ombretta per staccarlo
+            color = paper,
+            shadowElevation = 8.dp,
             modifier = Modifier
-                .align(Alignment.TopEnd) // Lo piazziamo in alto a destra nel Box padre
-                .offset(x = 6.dp, y = (-6).dp) // Lo spostiamo: 6dp a destra (fuori), 6dp in alto (fuori)
-                .size(36.dp) // Dimensione del cerchio
+                .align(Alignment.TopEnd)
+                .offset(x = 6.dp, y = (-6).dp)
+                .size(38.dp)
+                .border(2.dp, outline, CircleShape)
         ) {
-            IconButton(
-                onClick = onFavoriteClick,
-                modifier = Modifier.padding(4.dp) // Un po' di margine interno per l'icona
-            ) {
+            IconButton(onClick = onFavoriteClick, modifier = Modifier.padding(4.dp)) {
                 Icon(
                     painter = painterResource(
                         id = if (product.isFavorite) R.drawable.ic_heart_full else R.drawable.ic_heart_empty
                     ),
-                    contentDescription = "Favorite",
-                    tint = Color.Unspecified, // Mantiene i colori originali dell'SVG/PNG
-                    modifier = Modifier.size(20.dp) // Dimensione dell'icona dentro il cerchio
+                    contentDescription = "Preferito",
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
     }
 }
 
-
-@OptIn(ExperimentalMaterial3Api::class)
+/* -----------------------------
+   QUADERNO A QUADRETTI (LEGGERO)
+   ----------------------------- */
 @Composable
-fun CatalogTopBar(
-    searchText: String,
-    onSearchChange: (String) -> Unit
-) {
-    Column(modifier = Modifier
-        .fillMaxWidth()
-        .padding(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Don't Call Your Mom!",
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp
-            )
-            Icon(
-                painter = painterResource(R.drawable.ic_profile),
-                contentDescription = "Profile",
-                modifier = Modifier.size(32.dp)
-            )
-        }
-        Text("La tua paghetta: 20€", fontSize = 14.sp, color = Color.Gray)
+private fun GraphPaperBackground(content: @Composable BoxScope.() -> Unit) {
+    val bg = MaterialTheme.colorScheme.background
+    val gridMinor = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
+    val gridMajor = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
 
-        Spacer(modifier = Modifier.height(16.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(bg)
 
-        // Search Bar ora FUNZIONANTE
-        TextField(
-            value = searchText,
-            onValueChange = onSearchChange, // Aggiorna il ViewModel
-            placeholder = { Text("cerca un prodotto") },
-            leadingIcon = {
-                Icon(
-                    painter = painterResource(id = android.R.drawable.ic_menu_search),
-                    contentDescription = null
+            val step = 18.dp.toPx()
+            val majorStep = step * 5
+
+            var x = 0f
+            while (x <= size.width) {
+                val isMajor = (x % majorStep) < 1f
+                drawLine(
+                    color = if (isMajor) gridMajor else gridMinor,
+                    start = Offset(x, 0f),
+                    end = Offset(x, size.height),
+                    strokeWidth = if (isMajor) 1.5f else 1f
                 )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(shape = RoundedCornerShape(size = 24.dp)),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                disabledContainerColor = Color.White,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-            ),
-            maxLines = 1
-        )
+                x += step
+            }
+
+            var y = 0f
+            while (y <= size.height) {
+                val isMajor = (y % majorStep) < 1f
+                drawLine(
+                    color = if (isMajor) gridMajor else gridMinor,
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = if (isMajor) 1.5f else 1f
+                )
+                y += step
+            }
+        }
+
+        content()
     }
 }
