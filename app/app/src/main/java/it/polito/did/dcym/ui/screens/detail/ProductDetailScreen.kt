@@ -23,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,8 +43,11 @@ fun ProductDetailScreen(
     onBackClick: () -> Unit,
     onMachineSelect: (String) -> Unit,
     onMachineInfoClick: (String) -> Unit,
-    onGoToHomeChoice: () -> Unit = {},
-    onGoToCatalog: () -> Unit = {},
+    onGoToHomeChoice: () -> Unit,
+    onGoToCatalog: () -> Unit,
+    onGoToProfile: () -> Unit,
+    onGoToHistory: () -> Unit,
+    onGoToHelp: () -> Unit,
     viewModel: ProductDetailViewModel = viewModel()
 ) {
     LaunchedEffect(productId) {
@@ -59,7 +63,10 @@ fun ProductDetailScreen(
         onMachineSelect = onMachineSelect,
         onMachineInfoClick = onMachineInfoClick,
         onGoToHomeChoice = onGoToHomeChoice,
-        onGoToCatalog = onGoToCatalog
+        onGoToCatalog = onGoToCatalog,
+        onGoToProfile = onGoToHomeChoice,
+        onGoToHistory = {},
+        onGoToHelp = {}
     )
 }
 
@@ -74,9 +81,12 @@ fun ProductDetailContent(
     onMachineSelect: (String) -> Unit,
     onMachineInfoClick: (String) -> Unit,
     onGoToHomeChoice: () -> Unit,
-    onGoToCatalog: () -> Unit
+    onGoToCatalog: () -> Unit,
+    onGoToProfile: () -> Unit,
+    onGoToHistory: () -> Unit,
+    onGoToHelp: () -> Unit,
 ) {
-    val bg = MaterialTheme.colorScheme.background
+    val bg = Color.Transparent
 
     Scaffold(
         containerColor = bg,
@@ -112,9 +122,17 @@ fun ProductDetailContent(
         bottomBar = {
             BottomNavBar(
                 mode = NavBarMode.PRODUCT_FLOW,
-                selectedTab = BottomTab.HOME,
-                onQrClick = onGoToHomeChoice,
-                onHomeClick = onGoToCatalog
+                selectedTab = BottomTab.CATALOGO,
+                onFabClick = onGoToHomeChoice,
+                onTabSelected = { tab ->
+                    when (tab) {
+                        BottomTab.CATALOGO -> onGoToCatalog()
+                        BottomTab.PROFILE -> onGoToProfile()
+                        BottomTab.HISTORY -> onGoToHistory()
+                        BottomTab.HELP -> onGoToHelp()
+                        else -> {} // in PRODUCT_FLOW ignoro il resto
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -235,13 +253,13 @@ private fun ProductTitleCard(product: Product) {
 
     Text(
         text = displayName,
-        fontSize = 24.sp,
+        fontSize = 22.sp,                // <- un filo meno di 24 (più bilanciato)
         fontWeight = FontWeight.Black,
         color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 6.dp)
-            .wrapContentWidth(Alignment.CenterHorizontally),
+            .padding(top = 6.dp),
+        textAlign = TextAlign.Center,     // <- più semplice di wrapContentWidth
         maxLines = 2,
         overflow = TextOverflow.Ellipsis
     )
@@ -469,18 +487,19 @@ private fun StickerPill(
 
     Box(
         modifier = Modifier
-            .shadow(3.dp, CircleShape)
+            .shadow(2.dp, CircleShape)                 // <- meno shadow
             .background(bg, CircleShape)
             .border(2.dp, outline, CircleShape)
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 10.dp, vertical = 4.dp) // <- meno altezza
     ) {
         Text(
             text = text,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Black,
+            fontSize = 11.sp,                          // <- più coerente
+            fontWeight = FontWeight.SemiBold,          // <- NON Black
             color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
 }
+

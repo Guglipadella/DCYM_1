@@ -24,7 +24,10 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun ProfileScreen(
     onGoToHomeChoice: () -> Unit,
-    onGoToCatalog: () -> Unit
+    onGoToCatalog: () -> Unit,
+    onGoToProfile: () -> Unit,
+    onGoToHistory: () -> Unit,
+    onGoToHelp: () -> Unit,
 ) {
     val bg = MaterialTheme.colorScheme.background
     val paper = MaterialTheme.colorScheme.surface
@@ -35,9 +38,17 @@ fun ProfileScreen(
         bottomBar = {
             BottomNavBar(
                 mode = NavBarMode.PRODUCT_FLOW,
-                selectedTab = BottomTab.PROFILE,
-                onQrClick = onGoToHomeChoice,  // matita -> scelta percorso
-                onHomeClick = onGoToCatalog    // home -> catalogo prodotti
+                selectedTab = BottomTab.CATALOGO,
+                onFabClick = onGoToHomeChoice,
+                onTabSelected = { tab ->
+                    when (tab) {
+                        BottomTab.CATALOGO -> onGoToCatalog()
+                        BottomTab.PROFILE -> onGoToProfile()
+                        BottomTab.HISTORY -> onGoToHistory()
+                        BottomTab.HELP -> onGoToHelp()
+                        else -> {} // in PRODUCT_FLOW ignoro il resto
+                    }
+                }
             )
         }
     ) { padding ->

@@ -2,13 +2,11 @@ package it.polito.did.dcym
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,9 +16,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import it.polito.did.dcym.ui.components.GraphPaperBackground
 import it.polito.did.dcym.ui.navigation.Screen
 import it.polito.did.dcym.ui.theme.DontCallYourMomTheme
-// IMPORTA LE SCHERMATE VERE
+
+// screens veri
 import it.polito.did.dcym.ui.screens.home.HomeScreen
 import it.polito.did.dcym.ui.screens.catalog.CatalogScreen
 import it.polito.did.dcym.ui.screens.detail.ProductDetailScreen
@@ -28,38 +28,43 @@ import it.polito.did.dcym.ui.screens.purchase.PurchaseOptionsScreen
 import it.polito.did.dcym.ui.screens.confirmation.ConfirmationScreen
 import it.polito.did.dcym.ui.screens.profile.ProfileScreen
 
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             DontCallYourMomTheme {
                 val navController = rememberNavController()
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                // ✅ sfondo globale a quadretti per TUTTE le schermate
+                GraphPaperBackground {
                     NavHost(
                         navController = navController,
-                        startDestination = Screen.Home.route,
-                        modifier = Modifier.padding(innerPadding)
+                        startDestination = Screen.Home.route
                     ) {
 
-                        // --- HOME ---
+                        // --- HOME (scelta percorso) ---
                         composable(Screen.Home.route) {
                             HomeScreen(
-                                onFindProductClick = { navController.navigate(Screen.Catalog.route) },
-                                onFindMachineClick = { navController.navigate(Screen.Map.route) },
-                                onEditProfileClick = { navController.navigate(Screen.Profile.route) } // <-- nuovo
+                                onFindProductClick = {
+                                    navController.navigate(Screen.Catalog.route) { launchSingleTop = true }
+                                },
+                                onFindMachineClick = {
+                                    navController.navigate(Screen.Map.route) { launchSingleTop = true }
+                                },
+                                onEditProfileClick = {
+                                    navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+                                }
                             )
-
                         }
 
-                        // --- MAPPA (Placeholder per ora) ---
+                        // --- MAPPA (placeholder) ---
                         composable(Screen.Map.route) {
                             MapScreen(
                                 onMachineSelected = {
-                                    // Simuliamo che dalla mappa si vada al catalogo di quella macchinetta
-                                    navController.navigate(Screen.Catalog.route)
+                                    // per ora: rimanda al catalogo
+                                    navController.navigate(Screen.Catalog.route) { launchSingleTop = true }
                                 }
                             )
                         }
@@ -71,28 +76,46 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(Screen.ProductDetail.createRoute(productId.toString()))
                                 },
                                 onGoToHomeChoice = {
-                                    navController.navigate(Screen.Home.route) {
-                                        launchSingleTop = true
-                                    }
+                                    navController.navigate(Screen.Home.route) { launchSingleTop = true }
                                 },
                                 onGoToCatalog = {
-                                    navController.navigate(Screen.Catalog.route) {
-                                        launchSingleTop = true
-                                    }
+                                    navController.navigate(Screen.Catalog.route) { launchSingleTop = true }
+                                },
+                                onGoToProfile = {
+                                    navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+                                },
+                                onGoToHistory = {
+                                    navController.navigate("history") { launchSingleTop = true } // oppure Screen.History.route se lo aggiungi
+                                },
+                                onGoToHelp = {
+                                    navController.navigate("help") { launchSingleTop = true } // idem
                                 }
                             )
                         }
+
+
                         // --- PROFILO ---
                         composable(Screen.Profile.route) {
                             ProfileScreen(
-                                onGoToHomeChoice = { navController.navigate(Screen.Home.route) },
-                                onGoToCatalog = { navController.navigate(Screen.Catalog.route) }
+                                onGoToHomeChoice = {
+                                    navController.navigate(Screen.Home.route) { launchSingleTop = true }
+                                },
+                                onGoToCatalog = {
+                                    navController.navigate(Screen.Catalog.route) { launchSingleTop = true }
+                                },
+                                onGoToProfile = {
+                                    navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+                                },
+                                onGoToHistory = {
+                                    navController.navigate("history") { launchSingleTop = true } // oppure Screen.History.route se lo aggiungi
+                                },
+                                onGoToHelp = {
+                                    navController.navigate("help") { launchSingleTop = true } // idem
+                                }
                             )
                         }
 
-
-                        // --- DETTAGLIO PRODOTTO (MODIFICATO) ---
-                        // 1. AGGIORNA IL BLOCCO PRODUCT DETAIL
+                        // --- DETTAGLIO PRODOTTO ---
                         composable(
                             route = Screen.ProductDetail.route,
                             arguments = listOf(navArgument("productId") { type = NavType.StringType })
@@ -103,52 +126,76 @@ class MainActivity : ComponentActivity() {
                                 productId = productId,
                                 onBackClick = { navController.popBackStack() },
 
-                                // QUI LA MODIFICA: Quando clicchi la freccia della macchinetta
                                 onMachineSelect = { machineId ->
                                     if (productId != null) {
-                                        navController.navigate(Screen.PurchaseOptions.createRoute(productId, machineId))
+                                        navController.navigate(
+                                            Screen.PurchaseOptions.createRoute(productId, machineId)
+                                        )
                                     }
                                 },
 
                                 onMachineInfoClick = { machineId ->
-                                    // Per ora non fa nulla o stampa un log
                                     println("Info macchinetta: $machineId")
+                                } ,
+                                onGoToHomeChoice = {
+                                    navController.navigate(Screen.Home.route) { launchSingleTop = true }
+                                },
+                                onGoToCatalog = {
+                                    navController.navigate(Screen.Catalog.route) { launchSingleTop = true }
+                                },
+                                onGoToProfile = {
+                                    navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+                                },
+                                onGoToHistory = {
+                                    navController.navigate("history") { launchSingleTop = true } // oppure Screen.History.route se lo aggiungi
+                                },
+                                onGoToHelp = {
+                                    navController.navigate("help") { launchSingleTop = true } // idem
                                 }
                             )
                         }
+                        composable(Screen.History.route) { PlaceholderScreen("Storico (in costruzione)") }
+                        composable(Screen.Help.route) { PlaceholderScreen("Aiuto (in costruzione)") }
 
-// 1. AGGIORNA PURCHASE OPTIONS (Per navigare alla conferma)
+                        // --- PURCHASE OPTIONS (✅ arguments corretti) ---
                         composable(
                             route = Screen.PurchaseOptions.route,
-                            // ... arguments uguali a prima ...
+                            arguments = listOf(
+                                navArgument("productId") { type = NavType.StringType },
+                                navArgument("machineId") { type = NavType.StringType }
+                            )
                         ) { backStackEntry ->
                             val pId = backStackEntry.arguments?.getString("productId")
                             val mId = backStackEntry.arguments?.getString("machineId")
 
                             PurchaseOptionsScreen(
-                                productId = pId, machineId = mId,
+                                productId = pId,
+                                machineId = mId,
                                 onBackClick = { navController.popBackStack() },
-                                // QUI I COLLEGAMENTI NUOVI:
                                 onConfirmPurchase = {
                                     if (pId != null && mId != null) {
-                                        navController.navigate(Screen.Confirmation.createRoute(pId, mId, isRent = false))
+                                        navController.navigate(
+                                            Screen.Confirmation.createRoute(pId, mId, isRent = false)
+                                        )
                                     }
                                 },
                                 onConfirmRent = {
                                     if (pId != null && mId != null) {
-                                        navController.navigate(Screen.Confirmation.createRoute(pId, mId, isRent = true))
+                                        navController.navigate(
+                                            Screen.Confirmation.createRoute(pId, mId, isRent = true)
+                                        )
                                     }
                                 }
                             )
                         }
 
-// 2. AGGIUNGI LA NUOVA ROTTA DI CONFERMA
+                        // --- CONFIRMATION ---
                         composable(
                             route = Screen.Confirmation.route,
                             arguments = listOf(
                                 navArgument("pId") { type = NavType.StringType },
                                 navArgument("mId") { type = NavType.StringType },
-                                navArgument("isRent") { type = NavType.BoolType } // Parametro booleano
+                                navArgument("isRent") { type = NavType.BoolType }
                             )
                         ) { backStackEntry ->
                             val pId = backStackEntry.arguments?.getString("pId")
@@ -161,11 +208,21 @@ class MainActivity : ComponentActivity() {
                                 isRent = isRent,
                                 onBackClick = { navController.popBackStack() },
                                 onFinalConfirmClick = {
-                                    // PROSSIMO STEP: Qui chiameremo la funzione che genera il codice e paga!
                                     println("CLICK FINALE! Rent: $isRent")
                                 }
                             )
                         }
+
+                        // --- (OPZIONALE) HISTORY / HELP placeholder se li metti nella navbar ---
+                        // Se nel tuo Screen.kt NON esistono, commenta questi due blocchi.
+                        /*
+                        composable(Screen.History.route) {
+                            PlaceholderScreen("Storico (in costruzione)")
+                        }
+                        composable(Screen.Help.route) {
+                            PlaceholderScreen("Aiuto (in costruzione)")
+                        }
+                        */
                     }
                 }
             }
@@ -173,16 +230,24 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// -------------------------------------------------------------------
-// RIMANI SOLO CON IL PLACEHOLDER DELLA MAPPA
-// (CatalogScreen e ProductDetailScreen li hai cancellati da qui perché ora sono file veri)
-// -------------------------------------------------------------------
-
+// ----------------------------------------------------
+// PLACEHOLDER MAPPA
+// ----------------------------------------------------
 @Composable
 fun MapScreen(onMachineSelected: (String) -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Button(onClick = { onMachineSelected("macchinetta_aule_i") }) {
             Text("Simula selezione Macchinetta (Mappa in costruzione)")
         }
+    }
+}
+
+// ----------------------------------------------------
+// (OPZIONALE) Placeholder generico
+// ----------------------------------------------------
+@Composable
+fun PlaceholderScreen(title: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(title)
     }
 }

@@ -52,6 +52,9 @@ fun CatalogScreen(
     onProductClick: (Int) -> Unit,
     onGoToHomeChoice: () -> Unit,
     onGoToCatalog: () -> Unit,
+    onGoToProfile: () -> Unit,
+    onGoToHistory: () -> Unit,
+    onGoToHelp: () -> Unit,
     viewModel: CatalogViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -71,9 +74,19 @@ fun CatalogScreen(
             BottomNavBar(
                 mode = NavBarMode.PRODUCT_FLOW,
                 selectedTab = BottomTab.CATALOGO,
-                onQrClick = onGoToHomeChoice, // FAB (matita) -> scelta percorso
-                onHomeClick = onGoToCatalog   // icona "catalogo" -> pagina prodotti
+                onFabClick = onGoToHomeChoice,
+                onTabSelected = { tab ->
+                    when (tab) {
+                        BottomTab.CATALOGO -> onGoToCatalog()
+                        BottomTab.PROFILE -> onGoToProfile()
+                        BottomTab.HISTORY -> onGoToHistory()
+                        BottomTab.HELP -> onGoToHelp()
+                        else -> {} // in PRODUCT_FLOW ignoro il resto
+                    }
+                }
             )
+
+
         },
         floatingActionButton = {
             AnimatedVisibility(visible = showScrollToTop, enter = fadeIn(), exit = fadeOut()) {

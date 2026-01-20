@@ -31,15 +31,15 @@ import it.polito.did.dcym.R
 enum class NavBarMode { PRODUCT_FLOW, MACHINE_FLOW }
 
 /**
- * Tab selezionata SOLO per evidenziare l’icona (UI). Non è logica di navigazione.
+ * Tab selezionata SOLO per evidenziare l’icona (UI).
+ * La navigazione la gestisci fuori (MainActivity / NavHost) via callback.
  */
 enum class BottomTab { HOME, HISTORY, MACHINES, PROFILE, HELP, CATALOGO }
 
 private data class NavItem(
     val tab: BottomTab,
     val label: String,
-    val iconRes: Int,
-    val onClick: () -> Unit
+    val iconRes: Int
 )
 
 private data class NavBarConfig(
@@ -53,193 +53,168 @@ private data class NavBarConfig(
 fun BottomNavBar(
     mode: NavBarMode = NavBarMode.PRODUCT_FLOW,
     selectedTab: BottomTab = BottomTab.CATALOGO,
-    onHomeClick: () -> Unit = {},
-    onHistoryClick: () -> Unit = {},
-    onQrClick: () -> Unit = {},
-    onMachinesClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onFabClick: () -> Unit = {},                 // FAB centrale -> HomeChoice
+    onTabSelected: (BottomTab) -> Unit = {}      // click su un tab
 ) {
     // Layout
-    val barHeight = 80.dp
-    val fabOffset = 30.dp
-    val fabSize = 64.dp
-    val barShape = CurvedBottomBarShape(fabSize.value + 16f)
+    val barHeight = 76.dp
+    val fabSize = 75.dp
+    val cutoutRadius = (fabSize.value / 2f) + 14f
+    val barShape = CurvedBottomBarShape(cutoutRadius)
 
-    // Colori dal Theme (che ora usa la tua palette)
-    val barColor = MaterialTheme.colorScheme.background      // “carta”
-    val outline = MaterialTheme.colorScheme.outline          // magenta scuro
-    val selectedColor = MaterialTheme.colorScheme.onSurface  // magenta scuro
+    // Colori theme
+    val barColor = MaterialTheme.colorScheme.background
+    val outline = MaterialTheme.colorScheme.outline
+    val selectedColor = MaterialTheme.colorScheme.onSurface
     val unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-
-    // Pill selezione (giallo pastello)
     val indicator = MaterialTheme.colorScheme.secondary
 
-    // FAB (viola intenso)
     val fabColor = MaterialTheme.colorScheme.primary
     val fabIconTint = MaterialTheme.colorScheme.onPrimary
-    val isCenterSelected = selectedTab == BottomTab.HOME
-    val fabBorderColor = if (isCenterSelected) selectedColor else outline
-    val fabElevation = if (isCenterSelected) 14.dp else 8.dp
 
-
+    // Config tabs
     val config = when (mode) {
         NavBarMode.PRODUCT_FLOW -> NavBarConfig(
             left1 = NavItem(
                 tab = BottomTab.PROFILE,
                 label = "profilo",
-                iconRes = R.drawable.ic_profile,          // <-- icona HOME del PDF
-                onClick = onProfileClick
+                iconRes = R.drawable.ic_profile
             ),
             left2 = NavItem(
                 tab = BottomTab.HISTORY,
-                label = "Acquisti",
-                iconRes = R.drawable.ic_storico,       // <-- icona STORICO del PDF
-                onClick = onHistoryClick
+                label = "acquisti",
+                iconRes = R.drawable.ic_storico
             ),
             right1 = NavItem(
                 tab = BottomTab.CATALOGO,
                 label = "catalogo",
-                iconRes = R.drawable.ic_store,
-                onClick = onHomeClick // per ora lo riusiamo come callback "vai al catalogo"
+                iconRes = R.drawable.ic_store
             ),
             right2 = NavItem(
                 tab = BottomTab.HELP,
                 label = "aiuto",
-                iconRes = R.drawable.ic_help,       // <-- icona PROFILO del PDF
-                onClick = onProfileClick
+                iconRes = R.drawable.ic_help
             )
         )
 
+        // se ti servirà più avanti
         NavBarMode.MACHINE_FLOW -> NavBarConfig(
             left1 = NavItem(
                 tab = BottomTab.MACHINES,
-                label = "Mappa",
-                iconRes = R.drawable.ic_distributori,  // <-- se hai un'icona mappa, mettila qui (es. ic_map)
-                onClick = onMachinesClick
+                label = "mappa",
+                iconRes = R.drawable.ic_distributori
             ),
             left2 = NavItem(
                 tab = BottomTab.HISTORY,
-                label = "Storico",
-                iconRes = R.drawable.ic_storico,
-                onClick = onHistoryClick
+                label = "storico",
+                iconRes = R.drawable.ic_storico
             ),
             right1 = NavItem(
-                tab = BottomTab.HOME,
-                label = "Prodotti",
-                iconRes = R.drawable.ic_home,          // <-- se hai un’icona “prodotti”, mettila qui (es. ic_catalog)
-                onClick = onHomeClick
+                tab = BottomTab.CATALOGO,
+                label = "prodotti",
+                iconRes = R.drawable.ic_store
             ),
             right2 = NavItem(
                 tab = BottomTab.PROFILE,
-                label = "Profilo",
-                iconRes = R.drawable.ic_profile,
-                onClick = onProfileClick
+                label = "profilo",
+                iconRes = R.drawable.ic_profile
             )
         )
     }
 
+    // Wrapper che evita “tagli” sui device con gesture bar
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(barHeight + fabOffset),
+            .navigationBarsPadding(),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // 1) Fondo barra + ombra
+        // Barra (sfondo + bordo insieme, così non “maschera” male)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(barHeight)
                 .shadow(10.dp, barShape)
                 .background(barColor, barShape)
-        )
-
-        // 1b) Bordo (outline) sopra la barra
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(barHeight)
-                .align(Alignment.BottomCenter)
                 .border(2.dp, outline, barShape)
         )
 
-        // 2) FAB centrale
+        // FAB centrale nel “cutout”
         Box(
-
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = 10.dp)
+                .offset(y = (-20).dp)
                 .size(fabSize)
                 .shadow(12.dp, CircleShape)
                 .background(fabColor, CircleShape)
                 .border(2.dp, outline, CircleShape)
                 .clip(CircleShape)
-                .clickable(onClick = onQrClick),
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { onFabClick() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_home),
-
-                contentDescription = "CATALOGO",
-                modifier = Modifier.size(32.dp),
+                contentDescription = "home",
+                modifier = Modifier.size(30.dp),
                 tint = fabIconTint
             )
         }
 
-        // 3) Items
+        // Items
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(barHeight)
+                .padding(horizontal = 10.dp)
                 .align(Alignment.BottomCenter),
             verticalAlignment = Alignment.CenterVertically
         ) {
             NavBarItem(
-                iconRes = config.left1.iconRes,
-                label = config.left1.label,
+                item = config.left1,
                 isSelected = selectedTab == config.left1.tab,
                 selectedColor = selectedColor,
                 unselectedColor = unselectedColor,
                 indicatorColor = indicator,
                 outlineColor = outline,
-                onClick = config.left1.onClick,
+                onClick = { onTabSelected(config.left1.tab) },
                 modifier = Modifier.weight(1f)
             )
 
             NavBarItem(
-                iconRes = config.left2.iconRes,
-                label = config.left2.label,
+                item = config.left2,
                 isSelected = selectedTab == config.left2.tab,
                 selectedColor = selectedColor,
                 unselectedColor = unselectedColor,
                 indicatorColor = indicator,
                 outlineColor = outline,
-                onClick = config.left2.onClick,
+                onClick = { onTabSelected(config.left2.tab) },
                 modifier = Modifier.weight(1f)
             )
 
-            Spacer(modifier = Modifier.width(fabSize + 16.dp))
+            Spacer(modifier = Modifier.width(fabSize + 18.dp))
 
             NavBarItem(
-                iconRes = config.right1.iconRes,
-                label = config.right1.label,
+                item = config.right1,
                 isSelected = selectedTab == config.right1.tab,
                 selectedColor = selectedColor,
                 unselectedColor = unselectedColor,
                 indicatorColor = indicator,
                 outlineColor = outline,
-                onClick = config.right1.onClick,
+                onClick = { onTabSelected(config.right1.tab) },
                 modifier = Modifier.weight(1f)
             )
 
             NavBarItem(
-                iconRes = config.right2.iconRes,
-                label = config.right2.label,
+                item = config.right2,
                 isSelected = selectedTab == config.right2.tab,
                 selectedColor = selectedColor,
                 unselectedColor = unselectedColor,
                 indicatorColor = indicator,
                 outlineColor = outline,
-                onClick = config.right2.onClick,
+                onClick = { onTabSelected(config.right2.tab) },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -248,8 +223,7 @@ fun BottomNavBar(
 
 @Composable
 private fun NavBarItem(
-    iconRes: Int,
-    label: String,
+    item: NavItem,
     isSelected: Boolean,
     selectedColor: androidx.compose.ui.graphics.Color,
     unselectedColor: androidx.compose.ui.graphics.Color,
@@ -259,29 +233,31 @@ private fun NavBarItem(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null
-        ) { onClick() },
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // “pill” selezionata stile sticker (con bordo + ombra)
         val pillModifier = if (isSelected) {
             Modifier
                 .shadow(4.dp, CircleShape)
                 .background(indicatorColor, CircleShape)
                 .border(2.dp, outlineColor, CircleShape)
                 .padding(horizontal = 14.dp, vertical = 5.dp)
-        } else Modifier
+        } else {
+            Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
+        }
 
         Box(
             contentAlignment = Alignment.Center,
             modifier = pillModifier
         ) {
             Icon(
-                painter = painterResource(iconRes),
-                contentDescription = label,
+                painter = painterResource(item.iconRes),
+                contentDescription = item.label,
                 modifier = Modifier.size(24.dp),
                 tint = if (isSelected) selectedColor else unselectedColor
             )
@@ -290,7 +266,7 @@ private fun NavBarItem(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = label,
+            text = item.label,
             fontSize = 11.sp,
             color = if (isSelected) selectedColor else unselectedColor,
             lineHeight = 12.sp
@@ -299,7 +275,7 @@ private fun NavBarItem(
 }
 
 // -----------------------------------------------------------
-// Curva cutout invariata
+// Shape con cutout centrale
 // -----------------------------------------------------------
 class CurvedBottomBarShape(private val circleRadius: Float) : Shape {
     override fun createOutline(
