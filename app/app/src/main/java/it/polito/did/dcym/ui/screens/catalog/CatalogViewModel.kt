@@ -5,16 +5,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import it.polito.did.dcym.data.model.Product
 import it.polito.did.dcym.data.repository.FirebaseRepository
+import it.polito.did.dcym.data.repository.FavoritesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-// Importiamo la Category dal file model
 import it.polito.did.dcym.data.model.Category
 
-// (Le classi CatalogUiState e CatalogFilter rimangono uguali a prima)
 data class CatalogUiState(
     val products: List<Product> = emptyList(),
     val selectedFilter: CatalogFilter = CatalogFilter.All,
@@ -32,24 +30,29 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private val _uiState = MutableStateFlow(CatalogUiState())
     val uiState: StateFlow<CatalogUiState> = _uiState.asStateFlow()
 
-    // Istanza del Repository
     private val repository = FirebaseRepository()
+    private val favoritesRepo = FavoritesRepository.getInstance(application)
 
-    // Lista completa scaricata da Firebase
     private var _allProductsFromDb: List<Product> = emptyList()
+    private var _favoriteIds: Set<Int> = emptySet()
 
     init {
-        // Avviamo l'ascolto dei dati da Firebase
+        // Ascoltiamo i preferiti
+        viewModelScope.launch {
+            favoritesRepo.favoriteIds.collect { ids ->
+                _favoriteIds = ids
+                updateFilteredList()
+            }
+        }
+
+        // Ascoltiamo i prodotti da Firebase
         viewModelScope.launch {
             repository.getProducts().collect { firebaseProducts ->
                 _allProductsFromDb = firebaseProducts
-                updateFilteredList() // Aggiorna la UI
+                updateFilteredList()
             }
         }
     }
-
-    // ... IL RESTO DELLE FUNZIONI (selectFilter, onSearchQueryChange, updateFilteredList) ...
-    // ... RIMANGONO QUASI UGUALI, MA USANO _allProductsFromDb INVECE DI MockDatabase ...
 
     fun onSearchQueryChange(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
@@ -62,22 +65,21 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun toggleFavorite(productId: Int) {
-        // Nota: Qui stiamo aggiornando solo in locale per la UI.
-        // Se volessi salvare i preferiti su Firebase o SharedPreferences, lo faresti qui.
-        _allProductsFromDb = _allProductsFromDb.map {
-            if (it.id == productId) it.copy(isFavorite = !it.isFavorite) else it
-        }
-        updateFilteredList()
+        favoritesRepo.toggleFavorite(productId)
     }
 
     private fun updateFilteredList() {
         val currentState = _uiState.value
 
+        // Aggiungiamo il flag isFavorite ai prodotti
+        val productsWithFavorites = _allProductsFromDb.map { product ->
+            product.copy(isFavorite = _favoriteIds.contains(product.id))
+        }
+
         var filtered = when (val filter = currentState.selectedFilter) {
-            is CatalogFilter.All -> _allProductsFromDb
-            is CatalogFilter.Favorites -> _allProductsFromDb.filter { it.isFavorite }
-            is CatalogFilter.ByCategory -> _allProductsFromDb.filter { product ->
-                // Usiamo il metodo helper per controllare le categorie
+            is CatalogFilter.All -> productsWithFavorites
+            is CatalogFilter.Favorites -> productsWithFavorites.filter { it.isFavorite }
+            is CatalogFilter.ByCategory -> productsWithFavorites.filter { product ->
                 product.getCategoryEnums().contains(filter.category)
             }
         }
@@ -91,12 +93,9 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(products = filtered) }
     }
 
-    // Helper per la UI per ottenere l'immagine corretta
     fun getProductImage(product: Product): Int {
-        // getApplication<Application>() ci dÃ  il contesto sicuro
         val context = getApplication<Application>().applicationContext
         val resId = product.getImageResourceId(context)
-        // Se non trova l'immagine (ritorna 0), usa un placeholder o l'icona del logo
-        return if (resId != 0) resId else it.polito.did.dcym.R.drawable.ic_logo_png_dcym // O un'immagine di default
+        return if (resId != 0) resId else it.polito.did.dcym.R.drawable.ic_logo_png_dcym
     }
 }

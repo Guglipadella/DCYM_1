@@ -19,7 +19,7 @@ import androidx.navigation.navArgument
 import it.polito.did.dcym.ui.components.GraphPaperBackground
 import it.polito.did.dcym.ui.navigation.Screen
 import it.polito.did.dcym.ui.theme.DontCallYourMomTheme
-import it.polito.did.dcym.ui.screens.map.MapScreen
+
 
 
 // screens veri
@@ -31,6 +31,8 @@ import it.polito.did.dcym.ui.screens.confirmation.ConfirmationScreen
 import it.polito.did.dcym.ui.screens.history.HistoryScreen
 import it.polito.did.dcym.ui.screens.profile.ProfileScreen
 import it.polito.did.dcym.ui.screens.playback.PlaybackScreen
+import it.polito.did.dcym.ui.screens.map.MapScreen
+import it.polito.did.dcym.ui.screens.machinecatalog.MachineCatalogScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -101,6 +103,30 @@ class MainActivity : ComponentActivity() {
                                 onGoToHelp = {
                                     navController.navigate("help") { launchSingleTop = true } // idem
                                 }
+                            )
+                        }
+                        // --- CATALOGO MACCHINETTA (FILTRATO) ---
+                        composable(
+                            route = Screen.MachineCatalog.route, // "machine_catalog/{machineId}"
+                            arguments = listOf(
+                                navArgument("machineId") { type = NavType.StringType }
+                            )
+                        ) { backStackEntry ->
+                            val machineId = backStackEntry.arguments?.getString("machineId") ?: ""
+
+                            MachineCatalogScreen(
+                                machineId = machineId,
+                                onBackClick = { navController.popBackStack() },
+                                onProductClick = { productId ->
+                                    // Da qui andiamo al dettaglio prodotto
+                                    // (Nota: idealmente dovremmo passare anche machineId al dettaglio per sapere che è già selezionata,
+                                    // ma per ora va bene il flusso standard)
+                                    navController.navigate(Screen.ProductDetail.createRoute(productId.toString()))
+                                },
+                                onGoToHomeChoice = { navController.popBackStack(Screen.Home.route, inclusive = false) },
+                                onGoToProfile = { navController.navigate(Screen.Profile.route) },
+                                onGoToHistory = { navController.navigate(Screen.History.route) },
+                                onGoToHelp = { /* todo help */ }
                             )
                         }
 

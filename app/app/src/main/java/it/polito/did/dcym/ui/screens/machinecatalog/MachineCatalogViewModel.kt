@@ -1,32 +1,54 @@
 package it.polito.did.dcym.ui.screens.machinecatalog
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import it.polito.did.dcym.data.model.Product
 import it.polito.did.dcym.data.repository.FirebaseRepository
+import it.polito.did.dcym.data.repository.FavoritesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+sealed class MachineCatalogFilter {
+    object All : MachineCatalogFilter()
+    data class ByCategory(val category: String) : MachineCatalogFilter()
+    object Favorites : MachineCatalogFilter()
+}
+
 data class MachineCatalogUiState(
     val machineName: String = "",
-    val allProductsInMachine: List<Product> = emptyList(), // Tutti i prodotti disponibili qui
-    val filteredProducts: List<Product> = emptyList(),     // Quelli filtrati per categoria
-    val selectedCategory: String = "Tutti",
+    val allProductsInMachine: List<Product> = emptyList(),
+    val filteredProducts: List<Product> = emptyList(),
+    val selectedFilter: MachineCatalogFilter = MachineCatalogFilter.All,
+    val searchQuery: String = "",
+    val userBalance: Double = 20.00,
     val isLoading: Boolean = true
 )
 
-class MachineCatalogViewModel : ViewModel() {
+class MachineCatalogViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository()
+    private val favoritesRepo = FavoritesRepository.getInstance(application)
+
     private val _uiState = MutableStateFlow(MachineCatalogUiState())
     val uiState = _uiState.asStateFlow()
 
+    private var _favoriteIds: Set<Int> = emptySet()
+
+    init {
+        // Ascoltiamo i preferiti
+        viewModelScope.launch {
+            favoritesRepo.favoriteIds.collect { ids ->
+                _favoriteIds = ids
+                updateFiltered()
+            }
+        }
+    }
+
     fun loadData(machineId: String) {
         viewModelScope.launch {
-            // 1. Scarichiamo tutte le macchinette e troviamo quella giusta
             val machines = repository.getMachines().first()
             val machine = machines.find { it.id == machineId }
 
@@ -35,34 +57,74 @@ class MachineCatalogViewModel : ViewModel() {
                 return@launch
             }
 
-            // 2. Scarichiamo tutti i prodotti
             val allProducts = repository.getProducts().first()
 
-            // 3. FILTRO: Teniamo solo i prodotti che hanno stock > 0 in QUESTA macchinetta
             val productsInThisMachine = allProducts.filter { product ->
                 machine.getStockForProduct(product.id) > 0
+            }.map { product ->
+                product.copy(isFavorite = _favoriteIds.contains(product.id))
             }
 
             _uiState.update {
                 it.copy(
                     machineName = machine.name,
                     allProductsInMachine = productsInThisMachine,
-                    filteredProducts = productsInThisMachine, // All'inizio mostriamo tutto
+                    filteredProducts = productsInThisMachine,
                     isLoading = false
                 )
             }
         }
     }
 
-    fun selectCategory(category: String) {
+    fun selectFilter(filter: MachineCatalogFilter) {
+        _uiState.update { it.copy(selectedFilter = filter) }
+        updateFiltered()
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        updateFiltered()
+    }
+
+    fun toggleFavorite(productId: Int) {
+        favoritesRepo.toggleFavorite(productId)
+    }
+
+    private fun updateFiltered() {
         _uiState.update { state ->
-            val filtered = if (category == "Tutti") {
-                state.allProductsInMachine
-            } else {
-                state.allProductsInMachine.filter { it.categories.contains(category) }
+            // Aggiorniamo lo stato dei preferiti
+            val updatedAll = state.allProductsInMachine.map { product ->
+                product.copy(isFavorite = _favoriteIds.contains(product.id))
             }
-            state.copy(selectedCategory = category, filteredProducts = filtered)
+
+            val filtered = filterProducts(updatedAll, state.selectedFilter, state.searchQuery)
+
+            state.copy(
+                allProductsInMachine = updatedAll,
+                filteredProducts = filtered
+            )
         }
     }
-}
 
+    private fun filterProducts(
+        products: List<Product>,
+        filter: MachineCatalogFilter,
+        query: String
+    ): List<Product> {
+        var result = products
+
+        result = when (filter) {
+            is MachineCatalogFilter.All -> result
+            is MachineCatalogFilter.Favorites -> result.filter { it.isFavorite }
+            is MachineCatalogFilter.ByCategory -> result.filter { product ->
+                product.categories.any { it.equals(filter.category, ignoreCase = true) }
+            }
+        }
+
+        if (query.isNotEmpty()) {
+            result = result.filter { it.name.contains(query, ignoreCase = true) }
+        }
+
+        return result
+    }
+}

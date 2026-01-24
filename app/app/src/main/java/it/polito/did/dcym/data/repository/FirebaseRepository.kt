@@ -27,17 +27,25 @@ class FirebaseRepository {
                 val list = mutableListOf<Product>()
                 snapshot.children.forEach { child ->
                     try {
+                        // Leggi le categorie come List<String>
+                        val categoriesList = mutableListOf<String>()
+                        child.child("categories").children.forEach { catChild ->
+                            catChild.getValue(String::class.java)?.let { categoriesList.add(it) }
+                        }
+
                         val p = Product(
                             id = child.child("id").getValue(Int::class.java) ?: 0,
                             name = child.child("name").getValue(String::class.java) ?: "",
                             description = child.child("description").getValue(String::class.java) ?: "",
-                            // Questo trucco (Number) permette di leggere sia 15 che 15.0 senza crash
                             pricePurchase = (child.child("pricePurchase").value as? Number)?.toDouble() ?: 0.0,
                             priceRent = (child.child("priceRent").value as? Number)?.toDouble(),
-                            imageResName = child.child("imageResName").getValue(String::class.java) ?: ""
+                            imageResName = child.child("imageResName").getValue(String::class.java) ?: "",
+                            categories = categoriesList  // ✅ Aggiungi questa riga
                         )
                         if (p.id != 0) list.add(p)
-                    } catch (e: Exception) { Log.e("Firebase", "Errore prodotto: ${e.message}") }
+                    } catch (e: Exception) {
+                        Log.e("Firebase", "Errore prodotto: ${e.message}")
+                    }
                 }
                 trySend(list)
             }
