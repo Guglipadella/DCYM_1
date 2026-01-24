@@ -25,6 +25,9 @@ sealed class Screen(val route: String) {
             "confirm/$pId/$mId/$isRent"
     }
 
+    data object Playback : Screen("playback/{orderId}") {
+        fun createRoute(orderId: String) = "playback/$orderId"
+    }
     // ✅ (Se li userai davvero)
     data object Checkout : Screen("checkout")
     data object ReturnProcess : Screen("return")

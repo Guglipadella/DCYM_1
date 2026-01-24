@@ -34,7 +34,7 @@ enum class NavBarMode { PRODUCT_FLOW, MACHINE_FLOW }
  * Tab selezionata SOLO per evidenziare l’icona (UI).
  * La navigazione la gestisci fuori (MainActivity / NavHost) via callback.
  */
-enum class BottomTab { HOME, HISTORY, MACHINES, PROFILE, HELP, CATALOGO }
+enum class BottomTab { HOME, HISTORY, MACHINES, PROFILE, HELP, CATALOGO}
 
 private data class NavItem(
     val tab: BottomTab,

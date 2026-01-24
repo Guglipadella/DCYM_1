@@ -26,7 +26,9 @@ import it.polito.did.dcym.ui.screens.catalog.CatalogScreen
 import it.polito.did.dcym.ui.screens.detail.ProductDetailScreen
 import it.polito.did.dcym.ui.screens.purchase.PurchaseOptionsScreen
 import it.polito.did.dcym.ui.screens.confirmation.ConfirmationScreen
+import it.polito.did.dcym.ui.screens.history.HistoryScreen
 import it.polito.did.dcym.ui.screens.profile.ProfileScreen
+import it.polito.did.dcym.ui.screens.playback.PlaybackScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,7 +87,7 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(Screen.Profile.route) { launchSingleTop = true }
                                 },
                                 onGoToHistory = {
-                                    navController.navigate("history") { launchSingleTop = true } // oppure Screen.History.route se lo aggiungi
+                                    navController.navigate(Screen.History.route)
                                 },
                                 onGoToHelp = {
                                     navController.navigate("help") { launchSingleTop = true } // idem
@@ -191,30 +193,70 @@ class MainActivity : ComponentActivity() {
 
                         // --- CONFIRMATION ---
                         composable(
-                            route = Screen.Confirmation.route,
-                            arguments = listOf(
-                                navArgument("pId") { type = NavType.StringType },
-                                navArgument("mId") { type = NavType.StringType },
-                                navArgument("isRent") { type = NavType.BoolType }
-                            )
+                            route = Screen.Confirmation.route
                         ) { backStackEntry ->
                             val pId = backStackEntry.arguments?.getString("pId")
                             val mId = backStackEntry.arguments?.getString("mId")
-                            val isRent = backStackEntry.arguments?.getBoolean("isRent") ?: false
+                            val isRent = backStackEntry.arguments?.getString("isRent")?.toBoolean() ?: false
 
                             ConfirmationScreen(
                                 productId = pId,
                                 machineId = mId,
                                 isRent = isRent,
                                 onBackClick = { navController.popBackStack() },
-                                onFinalConfirmClick = {
-                                    println("CLICK FINALE! Rent: $isRent")
+                                onFinalConfirmClick = { /* Gestito internamente */ },
+                                onPaymentSuccess = { orderId ->
+                                    // QUI NAVIGHIAMO PASSANDO L'ID
+                                    navController.navigate(Screen.Playback.createRoute(orderId))
                                 }
                             )
                         }
 
+                        // --- AGGIORNA QUESTA PARTE ---
+                        composable(
+                            route = Screen.Playback.route
+                        ) { backStackEntry ->
+                            // RECUPERA L'ID
+                            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+
+                            PlaybackScreen(
+                                orderId = orderId,
+                                onGoToHome = {
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(Screen.Home.route) { inclusive = true }
+                                    }
+                                },
+                                onGoToCatalog = {
+                                    navController.navigate(Screen.Catalog.route) {
+                                        popUpTo(Screen.Home.route)
+                                    }
+                                },
+                                onGoToProfile = { navController.navigate(Screen.Profile.route) },
+                                onGoToHistory = { navController.navigate(Screen.History.route) }
+                            )
+                        }
                         // --- (OPZIONALE) HISTORY / HELP placeholder se li metti nella navbar ---
-                        // Se nel tuo Screen.kt NON esistono, commenta questi due blocchi.
+                        composable(Screen.History.route) {
+                            // Qui chiamiamo la schermata che abbiamo creato
+                            HistoryScreen(
+                                onGoToHomeChoice = {
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(Screen.Home.route) { inclusive = true }
+                                    }
+                                },
+                                onGoToCatalog = {
+                                    navController.navigate(Screen.Catalog.route) {
+                                        popUpTo(Screen.Home.route)
+                                    }
+                                },
+                                onGoToProfile = {
+                                    navController.navigate(Screen.Profile.route)
+                                },
+                                onGoToHelp = {
+                                    navController.navigate(Screen.Help.route)
+                                }
+                            )
+                        }
                         /*
                         composable(Screen.History.route) {
                             PlaceholderScreen("Storico (in costruzione)")
