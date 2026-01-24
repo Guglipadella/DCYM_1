@@ -35,8 +35,8 @@ fun ConfirmationScreen(
     machineId: String?,
     isRent: Boolean,
     onBackClick: () -> Unit,
-    onFinalConfirmClick: () -> Unit, // Lasciato per compatibilità ma non usato nel bottone sotto
-    onPaymentSuccess: (String) -> Unit, // <--- ORA ACCETTA STRINGA
+    onFinalConfirmClick: () -> Unit,
+    onPaymentSuccess: (String) -> Unit,
     viewModel: ConfirmationViewModel = viewModel()
 ) {
     LaunchedEffect(productId, machineId) {
@@ -55,8 +55,8 @@ fun ConfirmationScreen(
         isLoading = uiState.isLoading,
         onBackClick = onBackClick,
         onConfirmAndPay = {
-            // Chiamiamo il ViewModel e quando finisce navighiamo con l'ID
-            viewModel.confirmPurchase { orderId ->
+            // --- CORREZIONE: Passiamo isRent al ViewModel ---
+            viewModel.confirmPurchase(isRent) { orderId ->
                 onPaymentSuccess(orderId)
             }
         },
@@ -119,7 +119,7 @@ fun ConfirmationContent(
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 24.dp, vertical = 18.dp),
                 ) {
-                    // Card Prodotto
+                    // Card Principale
                     Card(
                         colors = CardDefaults.cardColors(containerColor = paper),
                         shape = RoundedCornerShape(24.dp),
@@ -127,6 +127,7 @@ fun ConfirmationContent(
                         modifier = Modifier.fillMaxWidth().border(2.dp, outline, RoundedCornerShape(24.dp))
                     ) {
                         Column(modifier = Modifier.padding(22.dp)) {
+                            // Header Prodotto
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Image(
                                     painter = painterResource(id = getImageRes(product.imageResName)),
@@ -141,21 +142,70 @@ fun ConfirmationContent(
                                     MachinePill(name = machine.name)
                                 }
                             }
+
                             HorizontalDivider(modifier = Modifier.padding(vertical = 18.dp), color = Color(0xFFF0F0F0))
-                            Text("Totale da pagare subito", fontSize = 14.sp, color = Color.Gray)
+
+                            // Prezzo
+                            Text(
+                                if (isRent) "Cauzione (importo scalato)" else "Totale da pagare subito",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
                             Text("${product.pricePurchase} €", fontWeight = FontWeight.ExtraBold, fontSize = 32.sp, color = Color.Black)
+
                             Spacer(modifier = Modifier.height(16.dp))
+
+                            // Saldo Residuo
                             WalletStatusCardSticker(userBalance, product.pricePurchase)
 
+                            // --- SEZIONE NOLEGGIO ---
                             if (isRent) {
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 18.dp), color = Color(0xFFF0F0F0))
+
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(painter = painterResource(R.drawable.ic_rent), contentDescription = null, tint = Color(0xFF6A5AE0))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Piano Rimborsi", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Scadenza: $maxReturnDate", fontSize = 13.sp, color = Color(0xFFD32F2F), fontWeight = FontWeight.SemiBold)
+                                Text("Se restituisci entro:", fontSize = 13.sp, color = Color.Gray)
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // TABELLA RIMBORSI
+                                val percentages = listOf(0.80, 0.72, 0.64, 0.56, 0.48, 0.40)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFFF9F9F9), RoundedCornerShape(12.dp))
+                                        .border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(12.dp))
+                                        .padding(12.dp)
+                                ) {
+                                    percentages.forEachIndexed { index, percent ->
+                                        val amount = product.pricePurchase * percent
+                                        val day = index + 1
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("$day° Giorno", fontSize = 14.sp, color = Color.DarkGray)
+                                            Text(
+                                                "Rimborso ${String.format("%.2f", amount)}€",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = Color(0xFF2E7D32)
+                                            )
+                                        }
+                                        if (index < percentages.size - 1) {
+                                            HorizontalDivider(color = Color.LightGray.copy(alpha=0.4f))
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Dopo il 6° giorno non è previsto alcun rimborso.", fontSize = 11.sp, color = Color.Gray, lineHeight = 14.sp)
+                                Text("Scadenza massima: $maxReturnDate", fontSize = 12.sp, color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
                             }
                         }
                     }

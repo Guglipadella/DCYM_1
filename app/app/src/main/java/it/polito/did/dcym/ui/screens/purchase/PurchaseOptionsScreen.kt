@@ -223,7 +223,7 @@ fun PurchaseOptionsContent(
 
                             Text(
                                 text = "Rimborsi (anteprima)",
-                                fontSize = 13.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Black,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
@@ -232,7 +232,7 @@ fun PurchaseOptionsContent(
 
                             RefundRowSticker(
                                 left = "Massimo (1° giorno)",
-                                right = "Rimborso ${(product.pricePurchase * 0.80).toInt()}€",
+                                right = "Rimborso    ${(product.pricePurchase * 0.80).toInt()}€",
                                 rightColor = green
                             )
 
@@ -240,7 +240,7 @@ fun PurchaseOptionsContent(
 
                             RefundRowSticker(
                                 left = "Minimo (6° giorno)",
-                                right = "Rimborso ${(product.pricePurchase * 0.40).toInt()}€",
+                                right = "Rimborso    ${(product.pricePurchase * 0.40).toInt()}€",
                                 rightColor = green
                             )
                         }
@@ -367,9 +367,11 @@ private fun OptionCardSticker(
     val outline = MaterialTheme.colorScheme.outline
     val paper = MaterialTheme.colorScheme.surface
     val text = MaterialTheme.colorScheme.onSurface
+    val priceHighlight = Color(0xFFFFD54F)
 
     val remaining = userBalance - price
-    val remainingColor = if (remaining >= 0) Color(0xFF4CAF50) else Color(0xFFD32F2F)
+    // MODIFICA QUI: Il resto è sempre grigio, neutro.
+    val remainingColor = Color.Gray
 
     Card(
         colors = CardDefaults.cardColors(containerColor = paper),
@@ -381,17 +383,17 @@ private fun OptionCardSticker(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Titolo + prezzo (prezzo in pill gialla coerente)
+            // HEADER (Titolo + Prezzo Giallo)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         fontWeight = FontWeight.Black,
-                        fontSize = 18.sp,
+                        fontSize = 20.sp,
                         color = text
                     )
                     Spacer(Modifier.height(4.dp))
@@ -403,25 +405,27 @@ private fun OptionCardSticker(
                     )
                 }
 
+                Spacer(Modifier.width(12.dp))
+
                 Box(
                     modifier = Modifier
-                        .shadow(3.dp, CircleShape)
-                        .background(pricePillBg, CircleShape)
-                        .border(2.dp, outline, CircleShape)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .shadow(4.dp, RoundedCornerShape(12.dp))
+                        .background(priceHighlight, RoundedCornerShape(12.dp))
+                        .border(2.dp, outline, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
                         text = "${price.toInt()}€",
-                        fontSize = 13.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Black,
-                        color = pricePillText
+                        color = Color.Black
                     )
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // Resto separato (si legge meglio)
+            // RESTO (Ora Grigio)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -435,9 +439,9 @@ private fun OptionCardSticker(
                 )
                 Text(
                     text = "Resto: ${String.format("%.0f", remaining)}€",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    color = remainingColor
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold, // Meno pesante di Black
+                    color = remainingColor // Grigio
                 )
             }
 
@@ -448,9 +452,9 @@ private fun OptionCardSticker(
                 it()
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // Bottone sticker
+            // BOTTONE
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -462,13 +466,14 @@ private fun OptionCardSticker(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) { onClick() }
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = buttonText,
+                    text = buttonText.uppercase(),
                     fontWeight = FontWeight.Black,
                     fontSize = 14.sp,
+                    letterSpacing = 1.sp,
                     color = MaterialTheme.colorScheme.onSecondary
                 )
             }
@@ -494,20 +499,20 @@ private fun RefundRowSticker(
             .shadow(2.dp, RoundedCornerShape(12.dp))
             .background(paper, RoundedCornerShape(12.dp))
             .border(2.dp, outline, RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp), // Più spazio interno
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = left,
-            fontSize = 12.sp,
+            fontSize = 14.sp, // Aumentato da 12 a 14
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = right,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Black,
+            fontSize = 14.sp, // Aumentato da 12 a 14
+            fontWeight = FontWeight.Black, // Più evidente
             color = rightColor
         )
     }

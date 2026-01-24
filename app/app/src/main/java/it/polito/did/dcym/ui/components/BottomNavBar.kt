@@ -34,7 +34,7 @@ enum class NavBarMode { PRODUCT_FLOW, MACHINE_FLOW }
  * Tab selezionata SOLO per evidenziare l’icona (UI).
  * La navigazione la gestisci fuori (MainActivity / NavHost) via callback.
  */
-enum class BottomTab { HOME, HISTORY, MACHINES, PROFILE, HELP, CATALOGO}
+enum class BottomTab { HOME, HISTORY, MACHINES, PROFILE, HELP, CATALOGO }
 
 private data class NavItem(
     val tab: BottomTab,
@@ -74,6 +74,7 @@ fun BottomNavBar(
 
     // Config tabs
     val config = when (mode) {
+        // FLUSSO PRODOTTO: Profilo, Acquisti | Catalogo, Aiuto
         NavBarMode.PRODUCT_FLOW -> NavBarConfig(
             left1 = NavItem(
                 tab = BottomTab.PROFILE,
@@ -97,12 +98,13 @@ fun BottomNavBar(
             )
         )
 
-        // se ti servirà più avanti
+        // FLUSSO MACCHINETTE: Profilo, Storico | Macchinette, Aiuto
+        // Sostituiamo SOLO Catalogo con Macchinette per coerenza posizionale
         NavBarMode.MACHINE_FLOW -> NavBarConfig(
             left1 = NavItem(
-                tab = BottomTab.MACHINES,
-                label = "mappa",
-                iconRes = R.drawable.ic_distributori
+                tab = BottomTab.PROFILE,
+                label = "profilo",
+                iconRes = R.drawable.ic_profile
             ),
             left2 = NavItem(
                 tab = BottomTab.HISTORY,
@@ -110,14 +112,15 @@ fun BottomNavBar(
                 iconRes = R.drawable.ic_storico
             ),
             right1 = NavItem(
-                tab = BottomTab.CATALOGO,
-                label = "prodotti",
-                iconRes = R.drawable.ic_store
+                // Questa è la tab attiva quando sei su MapScreen
+                tab = BottomTab.MACHINES,
+                label = "macchinette", // O "mappa" se preferisci
+                iconRes = R.drawable.ic_distributori
             ),
             right2 = NavItem(
-                tab = BottomTab.PROFILE,
-                label = "profilo",
-                iconRes = R.drawable.ic_profile
+                tab = BottomTab.HELP,
+                label = "aiuto",
+                iconRes = R.drawable.ic_help
             )
         )
     }

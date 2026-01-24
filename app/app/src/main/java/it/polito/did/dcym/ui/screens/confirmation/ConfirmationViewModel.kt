@@ -7,9 +7,9 @@ import androidx.lifecycle.viewModelScope
 import it.polito.did.dcym.data.model.Machine
 import it.polito.did.dcym.data.model.Order
 import it.polito.did.dcym.data.model.OrderStatus
+import it.polito.did.dcym.data.model.OrderType // Assicurati di aver importato l'enum
 import it.polito.did.dcym.data.model.Product
 import it.polito.did.dcym.data.repository.FirebaseRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -53,24 +53,28 @@ class ConfirmationViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // --- NUOVA FUNZIONE: Crea l'ordine e restituisce l'ID ---
-    fun confirmPurchase(onOrderCreated: (String) -> Unit) {
+    // --- AGGIORNATO: Ora accetta isRent ---
+    fun confirmPurchase(isRent: Boolean, onOrderCreated: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            // Generiamo i dati
             val newOrderId = "ORD-${System.currentTimeMillis()}"
-            val uniqueCode = (100000..999999).random().toString() // Genera 6 cifre per il suono
+            val uniqueCode = (100000..999999).random().toString()
+
+            // Determiniamo il tipo corretto
+            val type = if (isRent) OrderType.RENTAL else OrderType.PURCHASE
 
             val order = Order(
                 id = newOrderId,
+                userId = "user_demo", // O l'ID utente reale se presente
                 productId = _uiState.value.product?.id.toString(),
                 machineId = _uiState.value.machine?.id ?: "unknown",
                 pickupCode = uniqueCode,
-                status = OrderStatus.PENDING
+                type = type, // <--- FONDAMENTALE: Salviamo il tipo corretto
+                status = OrderStatus.PENDING,
+                purchaseTimestamp = System.currentTimeMillis()
             )
 
-            // SALVATAGGIO VERO SU FIREBASE
             val success = repository.saveOrder(order)
 
             _uiState.update { it.copy(isLoading = false) }
@@ -78,7 +82,6 @@ class ConfirmationViewModel(application: Application) : AndroidViewModel(applica
             if (success) {
                 onOrderCreated(newOrderId)
             } else {
-                // Gestisci errore se vuoi (es. Toast)
                 Log.e("ConfirmationVM", "Errore salvataggio ordine")
             }
         }

@@ -172,7 +172,7 @@ fun ProductDetailContent(
                 InfoCard(
                     title = "Informazioni",
                     // costo coerente: pill gialla + descrizione sotto
-                    topPillText = "Costo: ${product.pricePurchase.toInt()}€",
+
                     body = product.description
                 )
             }
@@ -244,25 +244,51 @@ private fun DetailHeader(
 /* -----------------------------
    TITOLO PRODOTTO (CENTRATO + PIU’ GRANDE)
    ----------------------------- */
+/* -----------------------------
+   TITOLO PRODOTTO + PREZZO EVIDENZIATO
+   ----------------------------- */
 @Composable
 private fun ProductTitleCard(product: Product) {
-    val displayName = if (product.name.trim().equals("Calcolatrice", ignoreCase = true))
-        "Calcolatrice"
-    else
-        product.name
+    val outline = MaterialTheme.colorScheme.outline
 
-    Text(
-        text = displayName,
-        fontSize = 22.sp,                // <- un filo meno di 24 (più bilanciato)
-        fontWeight = FontWeight.Black,
-        color = MaterialTheme.colorScheme.onBackground,
+    // Layout a riga: Nome a Sinistra, Prezzo a Destra
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 6.dp),
-        textAlign = TextAlign.Center,     // <- più semplice di wrapContentWidth
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis
-    )
+            .padding(vertical = 8.dp), // Un po' di aria verticale
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 1. NOME PRODOTTO
+        Text(
+            text = product.name,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f), // Occupa lo spazio disponibile
+            textAlign = TextAlign.Start,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Spacer(Modifier.width(12.dp))
+
+        // 2. PREZZO "STICKER" GIALLO
+        Box(
+            modifier = Modifier
+                .shadow(4.dp, RoundedCornerShape(14.dp))
+                .background(Color(0xFFFFD54F), RoundedCornerShape(14.dp)) // Giallo
+                .border(2.dp, outline, RoundedCornerShape(14.dp))
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "${product.pricePurchase.toInt()}€",
+                fontSize = 24.sp, // Scritta grande
+                fontWeight = FontWeight.Black,
+                color = Color.Black
+            )
+        }
+    }
 }
 
 /* -----------------------------

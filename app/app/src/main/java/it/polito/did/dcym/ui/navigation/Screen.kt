@@ -15,6 +15,10 @@ sealed class Screen(val route: String) {
         fun createRoute(productId: String) = "product_detail/$productId"
     }
 
+    data object MachineCatalog : Screen("machine_catalog/{machineId}") {
+        fun createRoute(machineId: String) = "machine_catalog/$machineId"
+    }
+
     data object PurchaseOptions : Screen("purchase_options/{productId}/{machineId}") {
         fun createRoute(productId: String, machineId: String) =
             "purchase_options/$productId/$machineId"

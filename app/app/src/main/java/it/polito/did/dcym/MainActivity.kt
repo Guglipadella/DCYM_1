@@ -19,6 +19,8 @@ import androidx.navigation.navArgument
 import it.polito.did.dcym.ui.components.GraphPaperBackground
 import it.polito.did.dcym.ui.navigation.Screen
 import it.polito.did.dcym.ui.theme.DontCallYourMomTheme
+import it.polito.did.dcym.ui.screens.map.MapScreen
+
 
 // screens veri
 import it.polito.did.dcym.ui.screens.home.HomeScreen
@@ -61,13 +63,20 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // --- MAPPA (placeholder) ---
+                        // --- SEZIONE MAPPA / MACCHINETTE ---
                         composable(Screen.Map.route) {
                             MapScreen(
-                                onMachineSelected = {
-                                    // per ora: rimanda al catalogo
-                                    navController.navigate(Screen.Catalog.route) { launchSingleTop = true }
-                                }
+                                onGoToHomeChoice = {
+                                    // Torna alla home svuotando lo stack se serve, o navigate semplice
+                                    navController.popBackStack(Screen.Home.route, inclusive = false)
+                                },
+                                onMachineClick = { machineId ->
+                                    // Naviga al catalogo filtrato per questa macchinetta
+                                    navController.navigate(Screen.MachineCatalog.createRoute(machineId))
+                                },
+                                onGoToProfile = { navController.navigate(Screen.Profile.route) },
+                                onGoToHistory = { navController.navigate(Screen.History.route) },
+                                onGoToHelp = { /* todo help */ }
                             )
                         }
 
@@ -211,6 +220,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+
 
                         // --- AGGIORNA QUESTA PARTE ---
                         composable(

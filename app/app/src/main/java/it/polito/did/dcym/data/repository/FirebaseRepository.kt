@@ -54,20 +54,31 @@ class FirebaseRepository {
                 val list = mutableListOf<Machine>()
                 snapshot.children.forEach { child ->
                     try {
-                        val inventory = mutableMapOf<String, Int>()
-                        child.child("inventory").children.forEach { item ->
-                            val qty = (item.value as? Number)?.toInt() ?: 0
-                            inventory[item.key ?: ""] = qty
+                        // Mappatura manuale sicura anche per i nuovi campi
+                        val inventoryMap = mutableMapOf<String, Int>()
+                        child.child("inventory").children.forEach { invChild ->
+                            // Gestisce sia array (chiave numerica implicita) che mappe (chiave stringa)
+                            val key = invChild.key ?: ""
+                            val value = invChild.getValue(Int::class.java) ?: 0
+                            inventoryMap[key] = value
                         }
 
-                        list.add(Machine(
-                            id = child.key ?: "",
+                        val m = Machine(
+                            id = child.child("id").getValue(String::class.java) ?: "",
                             name = child.child("name").getValue(String::class.java) ?: "",
-                            lat = (child.child("lat").value as? Number)?.toDouble() ?: 0.0,
-                            lng = (child.child("lng").value as? Number)?.toDouble() ?: 0.0,
-                            inventory = inventory
-                        ))
-                    } catch (e: Exception) { Log.e("Firebase", "Errore macchina: ${e.message}") }
+                            lat = child.child("lat").getValue(Double::class.java) ?: 0.0,
+                            lng = child.child("lng").getValue(Double::class.java) ?: 0.0,
+                            inventory = inventoryMap,
+                            // Nuovi campi con fallback
+                            sede = child.child("sede").getValue(String::class.java) ?: "",
+                            edificio = child.child("edificio").getValue(String::class.java) ?: "",
+                            piano = child.child("piano").getValue(String::class.java) ?: "",
+                            indirizzo = child.child("indirizzo").getValue(String::class.java) ?: ""
+                        )
+                        list.add(m)
+                    } catch (e: Exception) {
+                        Log.e("FirebaseRepo", "Err Machine Parse: ${e.message}")
+                    }
                 }
                 trySend(list)
             }
