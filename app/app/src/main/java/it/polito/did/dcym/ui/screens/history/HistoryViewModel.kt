@@ -3,8 +3,6 @@ package it.polito.did.dcym.ui.screens.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import it.polito.did.dcym.data.model.Order
-import it.polito.did.dcym.data.model.OrderStatus
-import it.polito.did.dcym.data.model.OrderType
 import it.polito.did.dcym.data.repository.FirebaseRepository
 import it.polito.did.dcym.ui.utils.DtmfPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,13 +23,13 @@ data class HistoryUiState(
     val items: List<HistoryItem> = emptyList(),
     val filteredItems: List<HistoryItem> = emptyList(),
     val filter: HistoryFilter = HistoryFilter.IN_CORSO,
-    val searchQuery: String = "", // <--- NUOVO CAMPO
+    val searchQuery: String = "",
     val isLoading: Boolean = true,
     val isPlayingSound: Boolean = false
 )
-// Definiamo i nuovi filtri richiesti
-enum class HistoryFilter { IN_CORSO, TUTTI, NOLEGGI, ACQUISTI }
 
+// Filtri disponibili
+enum class HistoryFilter { IN_CORSO, TUTTI, NOLEGGI, ACQUISTI }
 
 class HistoryViewModel : ViewModel() {
     private val repository = FirebaseRepository()
@@ -86,18 +84,17 @@ class HistoryViewModel : ViewModel() {
         applyFilter()
     }
 
-    // 3. Aggiorna applyFilter per includere la logica di ricerca
     private fun applyFilter() {
         val current = _uiState.value
 
-        // Prima filtriamo per Tab (logica che abbiamo fatto prima)
+        // ✅ Prima filtriamo per Tab usando gli helper dell'Order
         val tabFiltered = when (current.filter) {
             HistoryFilter.IN_CORSO -> current.items.filter {
-                it.order.status == OrderStatus.PENDING || it.order.status == OrderStatus.ONGOING
+                it.order.isPending || it.order.isOngoing
             }
             HistoryFilter.TUTTI -> current.items
-            HistoryFilter.NOLEGGI -> current.items.filter { it.order.type == OrderType.RENTAL }
-            HistoryFilter.ACQUISTI -> current.items.filter { it.order.type == OrderType.PURCHASE }
+            HistoryFilter.NOLEGGI -> current.items.filter { it.order.isRent }
+            HistoryFilter.ACQUISTI -> current.items.filter { !it.order.isRent }
         }
 
         // Poi filtriamo per la barra di ricerca (se c'è testo)
@@ -114,6 +111,7 @@ class HistoryViewModel : ViewModel() {
 
         _uiState.update { it.copy(filteredItems = finalFiltered) }
     }
+
     fun playSound(code: String) {
         if (_uiState.value.isPlayingSound) return
         viewModelScope.launch {

@@ -33,6 +33,8 @@ import it.polito.did.dcym.ui.screens.profile.ProfileScreen
 import it.polito.did.dcym.ui.screens.playback.PlaybackScreen
 import it.polito.did.dcym.ui.screens.map.MapScreen
 import it.polito.did.dcym.ui.screens.machinecatalog.MachineCatalogScreen
+import it.polito.did.dcym.ui.screens.productinmachine.ProductInMachineScreen
+import it.polito.did.dcym.ui.screens.machinedetail.MachineDetailScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,20 +67,44 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // --- SEZIONE MAPPA / MACCHINETTE ---
                         composable(Screen.Map.route) {
                             MapScreen(
-                                onGoToHomeChoice = {
-                                    // Torna alla home svuotando lo stack se serve, o navigate semplice
-                                    navController.popBackStack(Screen.Home.route, inclusive = false)
+                                onGoToHomeChoice = { navController.popBackStack(Screen.Home.route, inclusive = false) },
+
+                                // CLICK CORPO -> Dettaglio Info
+                                onDetailClick = { machineId ->
+                                    navController.navigate(Screen.MachineDetail.createRoute(machineId))
                                 },
-                                onMachineClick = { machineId ->
-                                    // Naviga al catalogo filtrato per questa macchinetta
+
+                                // CLICK FRECCIA -> Catalogo Macchinetta
+                                onCatalogClick = { machineId ->
                                     navController.navigate(Screen.MachineCatalog.createRoute(machineId))
                                 },
+
                                 onGoToProfile = { navController.navigate(Screen.Profile.route) },
                                 onGoToHistory = { navController.navigate(Screen.History.route) },
-                                onGoToHelp = { /* todo help */ }
+                                onGoToHelp = { /* help */ }
+                            )
+                        }
+
+                        // --- NUOVO: DETTAGLIO MACCHINETTA ---
+                        composable(
+                            route = Screen.MachineDetail.route,
+                            arguments = listOf(navArgument("machineId") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val machineId = backStackEntry.arguments?.getString("machineId") ?: ""
+
+                            MachineDetailScreen(
+                                machineId = machineId,
+                                onBackClick = { navController.popBackStack() },
+                                onGoToCatalog = { mId ->
+                                    // Dal dettaglio vado al catalogo
+                                    navController.navigate(Screen.MachineCatalog.createRoute(mId))
+                                },
+                                onGoToHomeChoice = { navController.popBackStack(Screen.Home.route, inclusive = false) },
+                                onGoToProfile = { navController.navigate(Screen.Profile.route) },
+                                onGoToHistory = { navController.navigate(Screen.History.route) },
+                                onGoToHelp = { /* todo */ }
                             )
                         }
 
@@ -105,12 +131,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        // --- CATALOGO MACCHINETTA (FILTRATO) ---
+                        // --- CATALOGO MACCHINETTA (Modificato il click!) ---
                         composable(
-                            route = Screen.MachineCatalog.route, // "machine_catalog/{machineId}"
-                            arguments = listOf(
-                                navArgument("machineId") { type = NavType.StringType }
-                            )
+                            route = Screen.MachineCatalog.route,
+                            arguments = listOf(navArgument("machineId") { type = NavType.StringType })
                         ) { backStackEntry ->
                             val machineId = backStackEntry.arguments?.getString("machineId") ?: ""
 
@@ -118,15 +142,40 @@ class MainActivity : ComponentActivity() {
                                 machineId = machineId,
                                 onBackClick = { navController.popBackStack() },
                                 onProductClick = { productId ->
-                                    // Da qui andiamo al dettaglio prodotto
-                                    // (Nota: idealmente dovremmo passare anche machineId al dettaglio per sapere che è già selezionata,
-                                    // ma per ora va bene il flusso standard)
-                                    navController.navigate(Screen.ProductDetail.createRoute(productId.toString()))
+                                    // [MODIFICA] Ora andiamo alla schermata "Prodotto NELLA Macchinetta"
+                                    navController.navigate(Screen.ProductInMachine.createRoute(productId, machineId))
+                                },
+                                // ... resto uguale ...
+                                onGoToHomeChoice = { navController.popBackStack(Screen.Home.route, inclusive = false) },
+                                onGoToProfile = { navController.navigate(Screen.Profile.route) },
+                                onGoToHistory = { navController.navigate(Screen.History.route) },
+                                onGoToHelp = { /* todo */ }
+                            )
+                        }
+
+                        // --- NUOVO: PRODOTTO IN MACCHINETTA ---
+                        composable(
+                            route = Screen.ProductInMachine.route,
+                            arguments = listOf(
+                                navArgument("productId") { type = NavType.IntType }, // IntType perché createRoute usa Int
+                                navArgument("machineId") { type = NavType.StringType }
+                            )
+                        ) { backStackEntry ->
+                            val pId = backStackEntry.arguments?.getInt("productId") ?: 0
+                            val mId = backStackEntry.arguments?.getString("machineId") ?: ""
+
+                            ProductInMachineScreen(
+                                productId = pId,
+                                machineId = mId,
+                                onBackClick = { navController.popBackStack() },
+                                onOptionSelected = { isRent ->
+                                    // Vai diretto alla conferma (saltando la scelta macchinetta)
+                                    navController.navigate(Screen.Confirmation.createRoute(pId.toString(), mId, isRent))
                                 },
                                 onGoToHomeChoice = { navController.popBackStack(Screen.Home.route, inclusive = false) },
                                 onGoToProfile = { navController.navigate(Screen.Profile.route) },
                                 onGoToHistory = { navController.navigate(Screen.History.route) },
-                                onGoToHelp = { /* todo help */ }
+                                onGoToHelp = { /* todo */ }
                             )
                         }
 

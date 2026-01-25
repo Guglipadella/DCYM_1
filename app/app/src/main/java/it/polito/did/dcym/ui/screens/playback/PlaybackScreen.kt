@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.polito.did.dcym.R
-import it.polito.did.dcym.data.model.OrderStatus
 import it.polito.did.dcym.ui.components.BottomNavBar
 import it.polito.did.dcym.ui.components.BottomTab
 import it.polito.did.dcym.ui.components.GraphPaperBackground
@@ -74,7 +72,8 @@ fun PlaybackScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                if (uiState.order?.status == OrderStatus.COMPLETED) {
+                // ✅ Usa l'helper property invece dell'Enum
+                if (uiState.order?.isCompleted == true) {
                     Icon(Icons.Default.Check, null, Modifier.size(100.dp), tint = AppColors.GreenPastelMuted)
                     Text("Prodotto Ritirato!", fontSize = 28.sp, fontWeight = FontWeight.Black)
                 } else {

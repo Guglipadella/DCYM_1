@@ -6,8 +6,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import it.polito.did.dcym.data.model.Machine
 import it.polito.did.dcym.data.model.Order
-import it.polito.did.dcym.data.model.OrderStatus
-import it.polito.did.dcym.data.model.OrderType // Assicurati di aver importato l'enum
 import it.polito.did.dcym.data.model.Product
 import it.polito.did.dcym.data.repository.FirebaseRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,26 +51,34 @@ class ConfirmationViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // --- AGGIORNATO: Ora accetta isRent ---
     fun confirmPurchase(isRent: Boolean, onOrderCreated: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
+            val product = _uiState.value.product
+            val machine = _uiState.value.machine
+
+            if (product == null || machine == null) {
+                Log.e("ConfirmationVM", "Prodotto o macchinetta mancanti")
+                _uiState.update { it.copy(isLoading = false) }
+                return@launch
+            }
+
             val newOrderId = "ORD-${System.currentTimeMillis()}"
             val uniqueCode = (100000..999999).random().toString()
 
-            // Determiniamo il tipo corretto
-            val type = if (isRent) OrderType.RENTAL else OrderType.PURCHASE
-
+            // ✅ Usa stringhe dirette, non Enum
             val order = Order(
                 id = newOrderId,
-                userId = "user_demo", // O l'ID utente reale se presente
-                productId = _uiState.value.product?.id.toString(),
-                machineId = _uiState.value.machine?.id ?: "unknown",
+                userId = "user_demo",
+                productId = product.id.toString(),
+                productName = product.name,
+                machineId = machine.id,
                 pickupCode = uniqueCode,
-                type = type, // <--- FONDAMENTALE: Salviamo il tipo corretto
-                status = OrderStatus.PENDING,
-                purchaseTimestamp = System.currentTimeMillis()
+                type = if (isRent) "RENTAL" else "PURCHASE",  // ✅ String
+                status = "PENDING",  // ✅ String
+                purchaseTimestamp = System.currentTimeMillis(),
+                expirationTimestamp = System.currentTimeMillis() + (24 * 60 * 60 * 1000)
             )
 
             val success = repository.saveOrder(order)

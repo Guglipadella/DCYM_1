@@ -6,20 +6,28 @@ data class Order(
     val productId: String = "",
     val machineId: String = "",
     val pickupCode: String = "",
-    val type: OrderType = OrderType.PURCHASE, // <--- NUOVO CAMPO: Distingue acquisto/noleggio
-    val status: OrderStatus = OrderStatus.PENDING,
+    val productName: String = "",
+    val status: String = "PENDING",  // String puro
+    val type: String = "PURCHASE",   // String puro
     val purchaseTimestamp: Long = System.currentTimeMillis(),
     val expirationTimestamp: Long = System.currentTimeMillis() + (24 * 60 * 60 * 1000)
-)
+) {
+    // Helper properties per facilitare i controlli
+    val isRent: Boolean
+        get() = type.equals("RENTAL", ignoreCase = true)
 
-enum class OrderType {
-    PURCHASE, // Acquisto standard
-    RENTAL    // Noleggio
-}
+    val isOngoing: Boolean
+        get() = status.equals("ONGOING", ignoreCase = true)
 
-enum class OrderStatus {
-    PENDING,   // Pagato, in attesa di ritiro allo sportello
-    ONGOING,   // (Solo Noleggi) Ritirato, in uso dall'utente, non ancora restituito
-    COMPLETED, // Transazione finita (Acquisto ritirato o Noleggio restituito)
-    EXPIRED    // Scaduto (non ritirato in tempo)
+    val isPendingRefund: Boolean
+        get() = status.equals("PENDING_REFUND", ignoreCase = true)
+
+    val isPending: Boolean
+        get() = status.equals("PENDING", ignoreCase = true)
+
+    val isCompleted: Boolean
+        get() = status.equals("COMPLETED", ignoreCase = true)
+
+    val isExpired: Boolean
+        get() = status.equals("EXPIRED", ignoreCase = true)
 }

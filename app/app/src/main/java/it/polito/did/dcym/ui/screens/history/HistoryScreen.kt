@@ -32,16 +32,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.polito.did.dcym.R
-import it.polito.did.dcym.data.model.OrderStatus
-import it.polito.did.dcym.data.model.OrderType
 import it.polito.did.dcym.ui.components.BottomNavBar
 import it.polito.did.dcym.ui.components.BottomTab
 import it.polito.did.dcym.ui.components.GraphPaperBackground
 import it.polito.did.dcym.ui.components.NavBarMode
 import it.polito.did.dcym.ui.theme.AppColors
-
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun HistoryScreen(
@@ -88,7 +83,7 @@ fun HistoryScreen(
                 )
 
                 Spacer(Modifier.height(16.dp))
-                // --- BARRA DI RICERCA AGGIUNTA QUI ---
+
                 HistorySearchBar(
                     query = uiState.searchQuery,
                     onQueryChange = { viewModel.onSearchQueryChange(it) }
@@ -96,7 +91,6 @@ fun HistoryScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // --- FILTRI (Tabs) ---
                 HistoryFilters(
                     currentFilter = uiState.filter,
                     onFilterSelect = { viewModel.setFilter(it) }
@@ -104,7 +98,6 @@ fun HistoryScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // --- LISTA ---
                 if (uiState.isLoading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -129,7 +122,6 @@ fun HistoryScreen(
             }
         }
 
-        // --- DIALOG DETTAGLIO (Stile Info Acquisto PDF) ---
         if (selectedItemForDetail != null) {
             val item = selectedItemForDetail!!
             HistoryDetailDialog(
@@ -147,7 +139,6 @@ fun HistoryFilters(
     currentFilter: HistoryFilter,
     onFilterSelect: (HistoryFilter) -> Unit
 ) {
-    // Mappatura tra l'Enum logico e l'etichetta visuale
     val filters = listOf(
         HistoryFilter.IN_CORSO to "In Corso",
         HistoryFilter.TUTTI to "Tutti",
@@ -157,11 +148,10 @@ fun HistoryFilters(
 
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 4.dp) // Piccolo padding laterale per lo scroll
+        contentPadding = PaddingValues(horizontal = 4.dp)
     ) {
         items(filters) { (filter, label) ->
             val isSelected = currentFilter == filter
-            // Uso i colori definiti nel tema o custom per dare evidenza alla selezione
             val bg = if (isSelected) AppColors.VioletPastelMuted else MaterialTheme.colorScheme.surface
             val txtColor = if (isSelected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface
             val border = if (isSelected) Color.Transparent else MaterialTheme.colorScheme.outline
@@ -188,30 +178,30 @@ fun HistoryFilters(
         }
     }
 }
+
 @Composable
 fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
     val outline = MaterialTheme.colorScheme.outline
     val paper = MaterialTheme.colorScheme.surface
-    val yellowAction = Color(0xFFFFD54F) // Giallo brand
+    val yellowAction = Color(0xFFFFD54F)
 
-    // Icone e Colori Stato
-    val isRental = item.order.type == OrderType.RENTAL
+    // ✅ Usa le stringhe invece degli Enum
+    val isRental = item.order.isRent
     val typeIcon = if (isRental) R.drawable.ic_rent else R.drawable.ic_buy
 
-    val statusColor = when(item.order.status) {
-        OrderStatus.PENDING -> Color(0xFFE57373) // Rosso
-        OrderStatus.ONGOING -> Color(0xFFFFB74D) // Arancione
+    val statusColor = when {
+        item.order.isPending -> Color(0xFFE57373)
+        item.order.isOngoing -> Color(0xFFFFB74D)
         else -> AppColors.GreenPastelMuted
     }
 
-    val expirationLabel = when(item.order.status) {
-        OrderStatus.PENDING -> "Ritira entro:"
-        OrderStatus.ONGOING -> "Restituisci entro:"
+    val expirationLabel = when {
+        item.order.isPending -> "Ritira entro:"
+        item.order.isOngoing -> "Restituisci entro:"
         else -> ""
     }
 
-    // Tempo rimanente formattato semplice per la card
-    val timeRemaining = if(item.order.status == OrderStatus.PENDING || item.order.status == OrderStatus.ONGOING) {
+    val timeRemaining = if(item.order.isPending || item.order.isOngoing) {
         formatTimeRemaining(item.order.expirationTimestamp)
     } else ""
 
@@ -219,7 +209,7 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = paper),
         elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(16.dp), // Card stondata
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
             .border(2.dp, outline, RoundedCornerShape(16.dp))
@@ -228,7 +218,6 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ICONA TIPO (Buy/Rent)
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -246,7 +235,6 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
 
             Spacer(Modifier.width(16.dp))
 
-            // INFO CENTRALI
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.productName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(item.machineName, fontSize = 12.sp, color = Color.Gray)
@@ -258,16 +246,14 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
                 }
             }
 
-            // PREZZO E FRECCIA (Stile Catalogo Corretto)
             Column(horizontalAlignment = Alignment.End) {
                 Text("${item.price.toInt()} €", fontWeight = FontWeight.Black, fontSize = 16.sp)
                 Spacer(Modifier.height(8.dp))
 
-                // --- CORREZIONE QUI: Quadrato Stondato, non Cerchio ---
                 Box(
                     modifier = Modifier
-                        .size(36.dp) // Leggermente più grande per il touch
-                        .background(yellowAction, RoundedCornerShape(12.dp)) // <--- Bordo stondato
+                        .size(36.dp)
+                        .background(yellowAction, RoundedCornerShape(12.dp))
                         .border(1.dp, outline, RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -297,32 +283,26 @@ fun HistorySearchBar(
         },
         leadingIcon = {
             Icon(
-
                 painter = painterResource(id = android.R.drawable.ic_menu_search),
-
                 contentDescription = null,
-
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-
             )
         },
         singleLine = true,
-        shape = RoundedCornerShape(16.dp), // Stesso raggio delle card
+        shape = RoundedCornerShape(16.dp),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
             disabledContainerColor = MaterialTheme.colorScheme.surface,
-            focusedIndicatorColor = Color.Transparent, // Rimuoviamo la linea sotto default di Android
+            focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
         ),
         modifier = modifier
             .fillMaxWidth()
-            // Bordo personalizzato per matchare lo stile "tecnico" dell'app
             .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
             .shadow(2.dp, RoundedCornerShape(16.dp))
     )
 }
-
 
 @Composable
 fun HistoryDetailDialog(
@@ -335,17 +315,15 @@ fun HistoryDetailDialog(
     val paper = MaterialTheme.colorScheme.surface
     val context = LocalContext.current
 
-    // Risorse Immagine
     val imageResId = remember(item.productImageRes) {
         context.resources.getIdentifier(item.productImageRes, "drawable", context.packageName)
     }
 
-    // Stati
-    val isRental = item.order.type == OrderType.RENTAL
-    val isPending = item.order.status == OrderStatus.PENDING
-    val isOngoing = item.order.status == OrderStatus.ONGOING
+    // ✅ Usa le stringhe invece degli Enum
+    val isRental = item.order.isRent
+    val isPending = item.order.isPending
+    val isOngoing = item.order.isOngoing
 
-    // Calcolo Tabella Rimborsi
     val refundRows = remember(item) {
         if (isRental) {
             val baseTime = if (isPending) System.currentTimeMillis() else item.order.purchaseTimestamp
@@ -367,7 +345,6 @@ fun HistoryDetailDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
-                // HEADER
                 Box(Modifier.fillMaxWidth()) {
                     Text(
                         text = "Info Transazione",
@@ -382,7 +359,6 @@ fun HistoryDetailDialog(
 
                 Spacer(Modifier.height(8.dp))
 
-                // 1. OGGETTO E ICONA
                 Image(
                     painter = painterResource(if (imageResId != 0) imageResId else R.drawable.ic_logo_png_dcym),
                     contentDescription = null,
@@ -395,7 +371,6 @@ fun HistoryDetailDialog(
 
                 Spacer(Modifier.height(24.dp))
 
-                // 2. GRIGLIA INFORMAZIONI
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -408,7 +383,6 @@ fun HistoryDetailDialog(
                     InfoRow("Data acquisto:", formatDate(item.order.purchaseTimestamp))
                     InfoRow("Prezzo pagato:", "${String.format("%.2f", item.price)} €")
 
-                    // Tempo Rimanente (Evidenziato)
                     if (isPending || isOngoing) {
                         val label = if (isPending) "Tempo per ritiro:" else "Tempo per restituzione:"
                         val timeColor = if (isPending) Color(0xFFE57373) else Color(0xFFFFB74D)
@@ -428,8 +402,6 @@ fun HistoryDetailDialog(
 
                 Spacer(Modifier.height(24.dp))
 
-                // --- 3. AZIONI (SPOSTATO IN ALTO) ---
-                // Il pulsante appare subito dopo le info, prima della tabella rimborsi
                 if (isPending) {
                     Button(
                         onClick = onPlaySound,
@@ -455,11 +427,9 @@ fun HistoryDetailDialog(
                     Spacer(Modifier.height(8.dp))
                     Text("Avvicina il telefono al microfono", fontSize = 12.sp, color = Color.Gray)
 
-                    // Spazio extra se c'è anche la tabella sotto
                     if (isRental) Spacer(Modifier.height(24.dp))
                 }
 
-                // --- 4. TABELLA RIMBORSI (SPOSTATO SOTTO) ---
                 if (isRental && (isPending || isOngoing)) {
                     Text(
                         "Valore Rimborso Attuale",
@@ -492,7 +462,7 @@ fun HistoryDetailDialog(
                                         color = if(idx==0) Color(0xFF2E7D32) else Color.Black
                                     )
                                 }
-                                if (idx < refundRows.size - 1) Divider(color = Color.LightGray, thickness = 0.5.dp)
+                                if (idx < refundRows.size - 1) HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
                             }
                         }
                     }
@@ -502,7 +472,6 @@ fun HistoryDetailDialog(
     }
 }
 
-// Helper locale per le righe info
 @Composable
 fun InfoRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -511,32 +480,24 @@ fun InfoRow(label: String, value: String) {
     }
 }
 
-// --- LOGICA RIMBORSI ---
-
 data class RefundRow(
     val label: String,
     val amount: Double,
-    val isActive: Boolean // Indica se è l'opzione corrente/futura
+    val isActive: Boolean
 )
 
 fun calculateDynamicRefunds(price: Double, startTime: Long): List<RefundRow> {
-    // Percentuali da specifica: 1gg->80%, 2gg->72%, ... 6gg->40%
     val percentages = listOf(0.80, 0.72, 0.64, 0.56, 0.48, 0.40)
     val msPerDay = 24L * 60 * 60 * 1000
     val now = System.currentTimeMillis()
 
-    // Giorni passati dal ritiro (0 = primo giorno, 1 = secondo, ecc.)
     val daysElapsed = ((now - startTime) / msPerDay).toInt().coerceAtLeast(0)
 
     val rows = mutableListOf<RefundRow>()
 
     percentages.forEachIndexed { index, percent ->
-        // Mostriamo la riga solo se il giorno non è ancora passato irrimediabilmente
-        // Esempio: se sono al giorno 2 (daysElapsed=2), i giorni 0 e 1 sono andati.
-        // Ma l'utente vuole vedere quanto prende OGGI (che è l'indice corretto) e nei prossimi giorni.
         if (index >= daysElapsed) {
             val amount = price * percent
-            // Etichetta amichevole
             val dayNum = index + 1
             val label = if (index == daysElapsed) "Oggi (Entro 24h)" else "Entro il $dayNum° giorno"
 
@@ -546,22 +507,18 @@ fun calculateDynamicRefunds(price: Double, startTime: Long): List<RefundRow> {
     return rows
 }
 
-// Formatta timestamp in data leggibile
 fun formatDate(timestamp: Long): String {
     val sdf = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault())
     return sdf.format(java.util.Date(timestamp))
 }
-// Aggiungi questa funzione in fondo al file HistoryScreen.kt
 
 fun formatTimeRemaining(expiryTime: Long): String {
     val diff = expiryTime - System.currentTimeMillis()
     if (diff <= 0) return "Scaduto"
 
     val hours = diff / (1000 * 60 * 60)
-    // Se mancano meno di 24 ore, mostra le ore (es. "4h")
     if (hours < 24) return "${hours}h"
 
-    // Altrimenti mostra i giorni (es. "2gg")
     val days = hours / 24
     return "${days}gg"
 }

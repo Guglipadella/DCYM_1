@@ -96,15 +96,7 @@ class FirebaseRepository {
         awaitClose { machinesRef.removeEventListener(listener) }
     }
 
-    // Salvataggio ordine (Richiede la dipendenza play-services-target aggiunta sopra)
-    suspend fun saveOrder(order: Order): Boolean {
-        return try {
-            ordersRef.child(order.id).setValue(order).await()
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
+
 
     // Ascolta lo stato dell'ordine per il playback
     fun getOrderFlow(orderId: String): Flow<Order?> = callbackFlow {
@@ -119,25 +111,62 @@ class FirebaseRepository {
     }
 
     // 5. LISTA ORDINI COMPLETA (Per la cronologia)
+    // 5. LISTA ORDINI COMPLETA (Per la cronologia)
+    // 5. LISTA ORDINI COMPLETA (Per la cronologia) - VERSIONE CORRETTA
     fun getOrders(): Flow<List<Order>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<Order>()
-                snapshot.children.forEach { child ->
-                    try {
-                        val order = child.getValue(Order::class.java)
-                        if (order != null) list.add(order)
-                    } catch (e: Exception) {
-                        Log.e("FirebaseRepo", "Err Order List Parse: ${e.message}")
+                // Leggiamo prima i prodotti (in modo sincrono, non ideale ma funziona)
+                val productsSnapshot = productsRef.get()
+
+                productsSnapshot.addOnSuccessListener { prodSnap ->
+                    val productsMap = mutableMapOf<String, String>()
+                    prodSnap.children.forEach { child ->
+                        val id = child.child("id").getValue(Int::class.java)?.toString()
+                        val name = child.child("name").getValue(String::class.java)
+                        if (id != null && name != null) {
+                            productsMap[id] = name
+                        }
                     }
+
+                    val list = mutableListOf<Order>()
+                    snapshot.children.forEach { child ->
+                        try {
+                            var order = child.getValue(Order::class.java)
+                            if (order != null) {
+                                // Aggiungi il nome del prodotto se manca
+                                if (order.productName.isEmpty()) {
+                                    val productName = productsMap[order.productId] ?: "Prodotto #${order.productId}"
+                                    order = order.copy(productName = productName)
+                                }
+                                list.add(order)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("FirebaseRepo", "Err Order Parse: ${e.message}")
+                        }
+                    }
+
+                    list.sortByDescending { it.purchaseTimestamp }
+                    trySend(list)
                 }
-                // Li ordiniamo per data (dal più recente)
-                list.sortByDescending { it.purchaseTimestamp }
-                trySend(list)
             }
-            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+            override fun onCancelled(error: DatabaseError) {
+                close(error.toException())
+            }
         }
         ordersRef.addValueEventListener(listener)
         awaitClose { ordersRef.removeEventListener(listener) }
+    }
+    // Salvataggio ordine (Richiede la dipendenza play-services-target aggiunta sopra
+    // Se hai una funzione saveOrder, assicurati che passi l'oggetto Order completo
+    // (non serve cambiare il codice qui se passi l'oggetto intero, ma chi la chiama deve riempire i campi nuovi)
+    fun saveOrder(order: Order): Boolean {
+        return try {
+            ordersRef.child(order.id).setValue(order)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 }

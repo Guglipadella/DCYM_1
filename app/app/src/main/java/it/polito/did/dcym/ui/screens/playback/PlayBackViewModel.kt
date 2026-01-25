@@ -3,7 +3,6 @@ package it.polito.did.dcym.ui.screens.playback
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import it.polito.did.dcym.data.model.Order
-import it.polito.did.dcym.data.model.OrderStatus
 import it.polito.did.dcym.data.repository.FirebaseRepository
 import it.polito.did.dcym.ui.utils.DtmfPlayer
 import kotlinx.coroutines.delay
@@ -34,8 +33,8 @@ class PlaybackViewModel : ViewModel() {
                     _uiState.update {
                         it.copy(
                             order = updatedOrder,
-                            // Se lo stato è completed, la UI mostrerà la spunta verde
-                            isCompleted = updatedOrder.status == OrderStatus.COMPLETED
+                            // ✅ Usa l'helper property invece dell'Enum
+                            isCompleted = updatedOrder.isCompleted
                         )
                     }
 
@@ -69,7 +68,6 @@ class PlaybackViewModel : ViewModel() {
             }
         }
     }
-
 
     fun playCodeSound() {
         val code = _uiState.value.order?.pickupCode ?: return

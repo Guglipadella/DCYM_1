@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,7 +38,8 @@ import it.polito.did.dcym.ui.theme.AppColors
 @Composable
 fun MapScreen(
     onGoToHomeChoice: () -> Unit,
-    onMachineClick: (String) -> Unit,
+    onDetailClick: (String) -> Unit,   // Era onMachineClick
+    onCatalogClick: (String) -> Unit,  // NUOVO
     onGoToProfile: () -> Unit,
     onGoToHistory: () -> Unit,
     onGoToHelp: () -> Unit,
@@ -138,7 +140,8 @@ fun MapScreen(
                         items(uiState.filteredMachines) { machine ->
                             MachineListCard(
                                 machine = machine,
-                                onClick = { onMachineClick(machine.id) }
+                                onBodyClick = { onDetailClick(machine.id) }, // Body -> Dettaglio (vedi MainActivity sotto)
+                                onArrowClick = { onCatalogClick(machine.id) }  // Freccia -> Catalogo
                             )
                         }
                     }
@@ -178,7 +181,11 @@ fun CurrentLocationSection() {
 }
 
 @Composable
-fun MachineListCard(machine: Machine, onClick: () -> Unit) {
+fun MachineListCard(
+    machine: Machine,
+    onBodyClick: () -> Unit,  // NUOVO: Click per info
+    onArrowClick: () -> Unit  // NUOVO: Click per catalogo
+) {
     val outline = MaterialTheme.colorScheme.outline
     val paper = MaterialTheme.colorScheme.surface
     val iconRes = R.drawable.ic_distributori
@@ -190,7 +197,7 @@ fun MachineListCard(machine: Machine, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .border(2.dp, outline, RoundedCornerShape(20.dp))
-            .clickable { onClick() }
+        // RIMOSSO il .clickable globale qui!
     ) {
         Row(
             modifier = Modifier
@@ -198,66 +205,75 @@ fun MachineListCard(machine: Machine, onClick: () -> Unit) {
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+
+            // --- ZONA BODY CLICCABILE (Info) ---
+            Row(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f))
-                    .border(1.dp, outline.copy(alpha=0.3f), CircleShape),
-                contentAlignment = Alignment.Center
+                    .weight(1f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null // Nessun ripple brutto su tutto il blocco
+                    ) { onBodyClick() },
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    painter = painterResource(iconRes),
-                    contentDescription = "Distributore",
-                    modifier = Modifier.size(28.dp),
-                    tint = MaterialTheme.colorScheme.tertiary
-                )
-            }
+                // Icona
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f))
+                        .border(1.dp, outline.copy(alpha=0.3f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(iconRes),
+                        contentDescription = "Distributore",
+                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                }
 
-            Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(16.dp))
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = machine.name,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 16.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(Modifier.height(4.dp))
-
-                Text(
-                    text = "Politecnico di Torino",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    maxLines = 1
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MachineStatusPill(isOpen = true)
-                    MachineInfoPill(text = "100m", colorBg = Color(0xFFEEEEEE), colorTxt = Color.Black)
+                // Testi
+                Column(verticalArrangement = Arrangement.Center) {
+                    Text(
+                        text = machine.name,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Tocca per info", // Feedback visivo
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MachineStatusPill(isOpen = true)
+                        MachineInfoPill(text = "100m", colorBg = Color(0xFFEEEEEE), colorTxt = Color.Black)
+                    }
                 }
             }
 
             Spacer(Modifier.width(12.dp))
 
+            // --- ZONA FRECCIA CLICCABILE (Catalogo) ---
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .shadow(4.dp, RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(12.dp))
-                    .border(2.dp, outline, RoundedCornerShape(12.dp)),
+                    .border(2.dp, outline, RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp)) // Importante per il click
+                    .clickable { onArrowClick() }, // <--- Click separato
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_arrow_right),
-                    contentDescription = "Vai",
+                    contentDescription = "Vai al Catalogo",
                     tint = MaterialTheme.colorScheme.onSecondary,
                     modifier = Modifier.size(20.dp)
                 )
