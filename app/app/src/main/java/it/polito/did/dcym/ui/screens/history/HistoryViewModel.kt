@@ -28,7 +28,7 @@ data class HistoryUiState(
     val isPlayingSound: Boolean = false
 )
 
-// Filtri disponibili
+// Filtri disponibili nella UI
 enum class HistoryFilter { IN_CORSO, TUTTI, NOLEGGI, ACQUISTI }
 
 class HistoryViewModel : ViewModel() {
@@ -49,7 +49,7 @@ class HistoryViewModel : ViewModel() {
                 repository.getMachines()
             ) { orders, products, machines ->
                 orders.map { order ->
-                    val prod = products.find { it.id.toString() == order.productId }
+                    val prod = products.find { it.id.toString() == order.productId.toString() }
                     val mach = machines.find { it.id == order.machineId }
 
                     HistoryItem(
@@ -57,7 +57,7 @@ class HistoryViewModel : ViewModel() {
                         productName = prod?.name ?: "Prodotto sconosciuto",
                         productImageRes = prod?.imageResName ?: "",
                         machineName = mach?.name ?: "Macchinetta sconosciuta",
-                        price = prod?.pricePurchase ?: 0.0
+                        price = order.totalCost
                     )
                 }
             }.collect { fullList ->
@@ -69,7 +69,7 @@ class HistoryViewModel : ViewModel() {
                         isLoading = false
                     )
                 }
-                applyFilter() // Riapplica il filtro appena arrivano nuovi dati
+                applyFilter()
             }
         }
     }
@@ -87,23 +87,27 @@ class HistoryViewModel : ViewModel() {
     private fun applyFilter() {
         val current = _uiState.value
 
-        // ✅ Prima filtriamo per Tab usando gli helper dell'Order
+        // Prima filtriamo per Tab
         val tabFiltered = when (current.filter) {
             HistoryFilter.IN_CORSO -> current.items.filter {
-                it.order.isPending || it.order.isOngoing
+                // In corso = PENDING o ONGOING
+                it.order.status == "PENDING" || it.order.status == "ONGOING"
             }
             HistoryFilter.TUTTI -> current.items
-            HistoryFilter.NOLEGGI -> current.items.filter { it.order.isRent }
-            HistoryFilter.ACQUISTI -> current.items.filter { !it.order.isRent }
+            HistoryFilter.NOLEGGI -> current.items.filter {
+                it.order.isRent  // Solo i noleggi
+            }
+            HistoryFilter.ACQUISTI -> current.items.filter {
+                !it.order.isRent  // Solo gli acquisti
+            }
         }
 
-        // Poi filtriamo per la barra di ricerca (se c'è testo)
+        // Poi filtriamo per la barra di ricerca
         val query = current.searchQuery.trim().lowercase()
         val finalFiltered = if (query.isEmpty()) {
             tabFiltered
         } else {
             tabFiltered.filter {
-                // Cerchiamo nel nome del prodotto O nel nome della macchinetta
                 it.productName.lowercase().contains(query) ||
                         it.machineName.lowercase().contains(query)
             }

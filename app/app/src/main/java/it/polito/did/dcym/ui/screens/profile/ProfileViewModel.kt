@@ -11,9 +11,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ProfileUiState(
-    val activeRentals: List<Order> = emptyList(), // La lista filtrata
-    val filteredRentals: List<Order> = emptyList(), // Lista filtrata anche dalla ricerca
-    val userName: String = "Guglielmo Padella", // O nome utente reale
+    val activeRentals: List<Order> = emptyList(), // Lista completa attiva
+    val filteredRentals: List<Order> = emptyList(), // Lista filtrata dalla ricerca
+    val userName: String = "Guglielmo Padella",
     val userBalance: Double = 20.0,
     val searchQuery: String = "",
     val isLoading: Boolean = true
@@ -30,11 +30,11 @@ class ProfileViewModel : ViewModel() {
 
     private fun loadProfileData() {
         viewModelScope.launch {
-            // 1. Recupera gli ordini
+            // 1. Scarica tutti gli ordini
             val allOrders = repository.getOrders().first()
 
-            // 2. Filtra SOLO i noleggi attivi o in attesa di rimborso
-            // Usiamo equals(ignoreCase = true) per sicurezza
+            // 2. FILTRO RIGIDO PER IL PROFILO
+            // Mostra solo se è un Noleggio (isRent) E se lo stato è ONGOING o PENDING_REFUND
             val activeList = allOrders.filter { order ->
                 order.isRent && (
                         order.status.equals("ONGOING", ignoreCase = true) ||

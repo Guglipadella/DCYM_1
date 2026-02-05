@@ -240,7 +240,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        composable(Screen.History.route) { PlaceholderScreen("Storico (in costruzione)") }
+                        // composable(Screen.History.route) { PlaceholderScreen("Storico (in costruzione)") }
                         composable(Screen.Help.route) { PlaceholderScreen("Aiuto (in costruzione)") }
 
                         // --- PURCHASE OPTIONS (✅ arguments corretti) ---
@@ -277,7 +277,12 @@ class MainActivity : ComponentActivity() {
 
                         // --- CONFIRMATION ---
                         composable(
-                            route = Screen.Confirmation.route
+                            route = Screen.Confirmation.route,
+                            arguments = listOf(
+                                navArgument("pId") { type = NavType.StringType },
+                                navArgument("mId") { type = NavType.StringType },
+                                navArgument("isRent") { type = NavType.StringType }
+                            )
                         ) { backStackEntry ->
                             val pId = backStackEntry.arguments?.getString("pId")
                             val mId = backStackEntry.arguments?.getString("mId")
@@ -317,7 +322,15 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onGoToProfile = { navController.navigate(Screen.Profile.route) },
-                                onGoToHistory = { navController.navigate(Screen.History.route) }
+                                onGoToHistory = { navController.navigate(Screen.History.route) },
+                                onGoToHelp = {
+                                    navController.navigate(Screen.Help.route)
+                                },
+                                onGoToHomeChoice = {
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(Screen.Home.route) { inclusive = true }
+                                    }
+                                }
                             )
                         }
                         // --- (OPZIONALE) HISTORY / HELP placeholder se li metti nella navbar ---

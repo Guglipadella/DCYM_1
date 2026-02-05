@@ -20,14 +20,13 @@ class FirebaseRepository {
     private val ordersRef = database.getReference("orders")
     private val machinesRef = database.getReference("machines")
 
-    // Legge i prodotti forzando i numeri a Double per evitare crash
+    // 1. LISTA PRODOTTI
     fun getProducts(): Flow<List<Product>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val list = mutableListOf<Product>()
                 snapshot.children.forEach { child ->
                     try {
-                        // Leggi le categorie come List<String>
                         val categoriesList = mutableListOf<String>()
                         child.child("categories").children.forEach { catChild ->
                             catChild.getValue(String::class.java)?.let { categoriesList.add(it) }
@@ -40,7 +39,7 @@ class FirebaseRepository {
                             pricePurchase = (child.child("pricePurchase").value as? Number)?.toDouble() ?: 0.0,
                             priceRent = (child.child("priceRent").value as? Number)?.toDouble(),
                             imageResName = child.child("imageResName").getValue(String::class.java) ?: "",
-                            categories = categoriesList  // ✅ Aggiungi questa riga
+                            categories = categoriesList
                         )
                         if (p.id != 0) list.add(p)
                     } catch (e: Exception) {
@@ -55,17 +54,15 @@ class FirebaseRepository {
         awaitClose { productsRef.removeEventListener(listener) }
     }
 
-    // Legge le macchinette e l'inventario
+    // 2. LISTA MACCHINETTE
     fun getMachines(): Flow<List<Machine>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val list = mutableListOf<Machine>()
                 snapshot.children.forEach { child ->
                     try {
-                        // Mappatura manuale sicura anche per i nuovi campi
                         val inventoryMap = mutableMapOf<String, Int>()
                         child.child("inventory").children.forEach { invChild ->
-                            // Gestisce sia array (chiave numerica implicita) che mappe (chiave stringa)
                             val key = invChild.key ?: ""
                             val value = invChild.getValue(Int::class.java) ?: 0
                             inventoryMap[key] = value
@@ -77,7 +74,6 @@ class FirebaseRepository {
                             lat = child.child("lat").getValue(Double::class.java) ?: 0.0,
                             lng = child.child("lng").getValue(Double::class.java) ?: 0.0,
                             inventory = inventoryMap,
-                            // Nuovi campi con fallback
                             sede = child.child("sede").getValue(String::class.java) ?: "",
                             edificio = child.child("edificio").getValue(String::class.java) ?: "",
                             piano = child.child("piano").getValue(String::class.java) ?: "",
@@ -96,9 +92,7 @@ class FirebaseRepository {
         awaitClose { machinesRef.removeEventListener(listener) }
     }
 
-
-
-    // Ascolta lo stato dell'ordine per il playback
+    // 3. SINGOLO ORDINE (Per il Playback)
     fun getOrderFlow(orderId: String): Flow<Order?> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -110,56 +104,34 @@ class FirebaseRepository {
         awaitClose { ordersRef.child(orderId).removeEventListener(listener) }
     }
 
-    // 5. LISTA ORDINI COMPLETA (Per la cronologia)
-    // 5. LISTA ORDINI COMPLETA (Per la cronologia)
-    // 5. LISTA ORDINI COMPLETA (Per la cronologia) - VERSIONE CORRETTA
+    // 4. LISTA ORDINI COMPLETA (Semplificata e Corretta)
+    // Rimosso il tentativo di leggere i prodotti qui dentro che causava l'errore.
     fun getOrders(): Flow<List<Order>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                // Leggiamo prima i prodotti (in modo sincrono, non ideale ma funziona)
-                val productsSnapshot = productsRef.get()
-
-                productsSnapshot.addOnSuccessListener { prodSnap ->
-                    val productsMap = mutableMapOf<String, String>()
-                    prodSnap.children.forEach { child ->
-                        val id = child.child("id").getValue(Int::class.java)?.toString()
-                        val name = child.child("name").getValue(String::class.java)
-                        if (id != null && name != null) {
-                            productsMap[id] = name
+                val list = mutableListOf<Order>()
+                snapshot.children.forEach { child ->
+                    try {
+                        // Firebase mappa automaticamente i campi che trova (id, productId, productName, etc.)
+                        val order = child.getValue(Order::class.java)
+                        if (order != null) {
+                            list.add(order)
                         }
+                    } catch (e: Exception) {
+                        Log.e("FirebaseRepo", "Err Order List Parse: ${e.message}")
                     }
-
-                    val list = mutableListOf<Order>()
-                    snapshot.children.forEach { child ->
-                        try {
-                            var order = child.getValue(Order::class.java)
-                            if (order != null) {
-                                // Aggiungi il nome del prodotto se manca
-                                if (order.productName.isEmpty()) {
-                                    val productName = productsMap[order.productId] ?: "Prodotto #${order.productId}"
-                                    order = order.copy(productName = productName)
-                                }
-                                list.add(order)
-                            }
-                        } catch (e: Exception) {
-                            Log.e("FirebaseRepo", "Err Order Parse: ${e.message}")
-                        }
-                    }
-
-                    list.sortByDescending { it.purchaseTimestamp }
-                    trySend(list)
                 }
+                // Ordina dal più recente
+                list.sortByDescending { it.purchaseTimestamp }
+                trySend(list)
             }
-            override fun onCancelled(error: DatabaseError) {
-                close(error.toException())
-            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
         ordersRef.addValueEventListener(listener)
         awaitClose { ordersRef.removeEventListener(listener) }
     }
-    // Salvataggio ordine (Richiede la dipendenza play-services-target aggiunta sopra
-    // Se hai una funzione saveOrder, assicurati che passi l'oggetto Order completo
-    // (non serve cambiare il codice qui se passi l'oggetto intero, ma chi la chiama deve riempire i campi nuovi)
+
+    // 5. SALVATAGGIO ORDINE
     fun saveOrder(order: Order): Boolean {
         return try {
             ordersRef.child(order.id).setValue(order)

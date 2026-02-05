@@ -1,33 +1,26 @@
 package it.polito.did.dcym.data.model
 
+import com.google.firebase.database.PropertyName
+
 data class Order(
     val id: String = "",
     val userId: String = "",
-    val productId: String = "",
+    val productId: Int = 0,
     val machineId: String = "",
     val pickupCode: String = "",
+
+    // INFO PRODOTTO (Denormalizzate per facilità)
     val productName: String = "",
-    val status: String = "PENDING",  // String puro
-    val type: String = "PURCHASE",   // String puro
-    val purchaseTimestamp: Long = System.currentTimeMillis(),
-    val expirationTimestamp: Long = System.currentTimeMillis() + (24 * 60 * 60 * 1000)
-) {
-    // Helper properties per facilitare i controlli
-    val isRent: Boolean
-        get() = type.equals("RENTAL", ignoreCase = true)
 
-    val isOngoing: Boolean
-        get() = status.equals("ONGOING", ignoreCase = true)
+    // ⚠️ IMPORTANTE: Firebase salva come "rent" ma in Kotlin usiamo "isRent"
+    @get:PropertyName("rent")
+    @set:PropertyName("rent")
+    var isRent: Boolean = false,   // TRUE = è un noleggio, FALSE = acquisto
 
-    val isPendingRefund: Boolean
-        get() = status.equals("PENDING_REFUND", ignoreCase = true)
+    // INFO TEMPORALI E COSTI
+    val purchaseTimestamp: Long = 0,
+    val totalCost: Double = 0.0,
 
-    val isPending: Boolean
-        get() = status.equals("PENDING", ignoreCase = true)
-
-    val isCompleted: Boolean
-        get() = status.equals("COMPLETED", ignoreCase = true)
-
-    val isExpired: Boolean
-        get() = status.equals("EXPIRED", ignoreCase = true)
-}
+    // STATO: "PENDING", "ONGOING", "PENDING_REFUND", "COMPLETED"
+    val status: String = "PENDING"
+)

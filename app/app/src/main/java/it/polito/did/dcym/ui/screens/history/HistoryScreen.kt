@@ -37,6 +37,8 @@ import it.polito.did.dcym.ui.components.BottomTab
 import it.polito.did.dcym.ui.components.GraphPaperBackground
 import it.polito.did.dcym.ui.components.NavBarMode
 import it.polito.did.dcym.ui.theme.AppColors
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun HistoryScreen(
@@ -84,6 +86,7 @@ fun HistoryScreen(
 
                 Spacer(Modifier.height(16.dp))
 
+                // BARRA DI RICERCA
                 HistorySearchBar(
                     query = uiState.searchQuery,
                     onQueryChange = { viewModel.onSearchQueryChange(it) }
@@ -91,6 +94,7 @@ fun HistoryScreen(
 
                 Spacer(Modifier.height(16.dp))
 
+                // FILTRI (Tabs)
                 HistoryFilters(
                     currentFilter = uiState.filter,
                     onFilterSelect = { viewModel.setFilter(it) }
@@ -98,6 +102,7 @@ fun HistoryScreen(
 
                 Spacer(Modifier.height(16.dp))
 
+                // LISTA
                 if (uiState.isLoading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -122,6 +127,7 @@ fun HistoryScreen(
             }
         }
 
+        // DIALOG DETTAGLIO
         if (selectedItemForDetail != null) {
             val item = selectedItemForDetail!!
             HistoryDetailDialog(
@@ -185,24 +191,34 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
     val paper = MaterialTheme.colorScheme.surface
     val yellowAction = Color(0xFFFFD54F)
 
-    // ✅ Usa le stringhe invece degli Enum
+    // Usa solo i campi di Order.kt
     val isRental = item.order.isRent
     val typeIcon = if (isRental) R.drawable.ic_rent else R.drawable.ic_buy
 
-    val statusColor = when {
-        item.order.isPending -> Color(0xFFE57373)
-        item.order.isOngoing -> Color(0xFFFFB74D)
-        else -> AppColors.GreenPastelMuted
+    // Colori basati sullo status
+    val statusColor = when (item.order.status) {
+        "PENDING" -> Color(0xFFE57373) // Rosso - in attesa di ritiro
+        "ONGOING" -> Color(0xFFFFB74D) // Arancione - in uso
+        "PENDING_REFUND" -> Color(0xFF9575CD) // Viola - attesa rimborso
+        else -> AppColors.GreenPastelMuted // Verde - completato
     }
 
-    val expirationLabel = when {
-        item.order.isPending -> "Ritira entro:"
-        item.order.isOngoing -> "Restituisci entro:"
+    val expirationLabel = when (item.order.status) {
+        "PENDING" -> "Ritira entro:"
+        "ONGOING" -> "Restituisci entro:"
         else -> ""
     }
 
-    val timeRemaining = if(item.order.isPending || item.order.isOngoing) {
-        formatTimeRemaining(item.order.expirationTimestamp)
+    // Calcola tempo rimanente
+    val oneDayMs = 24L * 60 * 60 * 1000
+    val expirationTime = when (item.order.status) {
+        "PENDING" -> item.order.purchaseTimestamp + oneDayMs  // 24h per ritirare
+        "ONGOING" -> item.order.purchaseTimestamp + (6 * oneDayMs)  // 6 giorni per restituire
+        else -> 0L
+    }
+
+    val timeRemaining = if (item.order.status == "PENDING" || item.order.status == "ONGOING") {
+        formatTimeRemaining(expirationTime)
     } else ""
 
     Card(
@@ -218,6 +234,7 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // ICONA TIPO (Buy/Rent)
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -235,6 +252,7 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
 
             Spacer(Modifier.width(16.dp))
 
+            // INFO CENTRALI
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.productName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(item.machineName, fontSize = 12.sp, color = Color.Gray)
@@ -246,6 +264,7 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
                 }
             }
 
+            // PREZZO E FRECCIA
             Column(horizontalAlignment = Alignment.End) {
                 Text("${item.price.toInt()} €", fontWeight = FontWeight.Black, fontSize = 16.sp)
                 Spacer(Modifier.height(8.dp))
@@ -319,10 +338,18 @@ fun HistoryDetailDialog(
         context.resources.getIdentifier(item.productImageRes, "drawable", context.packageName)
     }
 
-    // ✅ Usa le stringhe invece degli Enum
+    // Usa solo i campi di Order.kt
     val isRental = item.order.isRent
-    val isPending = item.order.isPending
-    val isOngoing = item.order.isOngoing
+    val isPending = item.order.status == "PENDING"
+    val isOngoing = item.order.status == "ONGOING"
+
+    // Calcola expirationTime qui nel dialog
+    val oneDayMs = 24L * 60 * 60 * 1000
+    val expirationTime = when (item.order.status) {
+        "PENDING" -> item.order.purchaseTimestamp + oneDayMs
+        "ONGOING" -> item.order.purchaseTimestamp + (6 * oneDayMs)
+        else -> 0L
+    }
 
     val refundRows = remember(item) {
         if (isRental) {
@@ -345,6 +372,7 @@ fun HistoryDetailDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
+                // HEADER
                 Box(Modifier.fillMaxWidth()) {
                     Text(
                         text = "Info Transazione",
@@ -359,6 +387,7 @@ fun HistoryDetailDialog(
 
                 Spacer(Modifier.height(8.dp))
 
+                // IMMAGINE PRODOTTO
                 Image(
                     painter = painterResource(if (imageResId != 0) imageResId else R.drawable.ic_logo_png_dcym),
                     contentDescription = null,
@@ -371,6 +400,7 @@ fun HistoryDetailDialog(
 
                 Spacer(Modifier.height(24.dp))
 
+                // GRIGLIA INFORMAZIONI
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -392,7 +422,7 @@ fun HistoryDetailDialog(
                         ) {
                             Text(label, fontSize = 14.sp, color = Color.Gray)
                             Text(
-                                formatTimeRemaining(item.order.expirationTimestamp),
+                                formatTimeRemaining(expirationTime),
                                 fontWeight = FontWeight.Black,
                                 color = timeColor
                             )
@@ -402,6 +432,7 @@ fun HistoryDetailDialog(
 
                 Spacer(Modifier.height(24.dp))
 
+                // AZIONI (Ritiro) - solo se PENDING
                 if (isPending) {
                     Button(
                         onClick = onPlaySound,
@@ -430,6 +461,7 @@ fun HistoryDetailDialog(
                     if (isRental) Spacer(Modifier.height(24.dp))
                 }
 
+                // TABELLA RIMBORSI (solo per noleggi in PENDING o ONGOING)
                 if (isRental && (isPending || isOngoing)) {
                     Text(
                         "Valore Rimborso Attuale",
@@ -451,15 +483,15 @@ fun HistoryDetailDialog(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(if (idx == 0) AppColors.GreenPastelMuted.copy(alpha=0.2f) else Color.Transparent)
+                                        .background(if (idx == 0) AppColors.GreenPastelMuted.copy(alpha = 0.2f) else Color.Transparent)
                                         .padding(12.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(row.label, fontSize = 14.sp, fontWeight = if(idx==0) FontWeight.Bold else FontWeight.Normal)
+                                    Text(row.label, fontSize = 14.sp, fontWeight = if (idx == 0) FontWeight.Bold else FontWeight.Normal)
                                     Text(
                                         "+${String.format("%.2f", row.amount)} €",
                                         fontWeight = FontWeight.Bold,
-                                        color = if(idx==0) Color(0xFF2E7D32) else Color.Black
+                                        color = if (idx == 0) Color(0xFF2E7D32) else Color.Black
                                     )
                                 }
                                 if (idx < refundRows.size - 1) HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
@@ -508,8 +540,8 @@ fun calculateDynamicRefunds(price: Double, startTime: Long): List<RefundRow> {
 }
 
 fun formatDate(timestamp: Long): String {
-    val sdf = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault())
-    return sdf.format(java.util.Date(timestamp))
+    val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+    return sdf.format(Date(timestamp))
 }
 
 fun formatTimeRemaining(expiryTime: Long): String {

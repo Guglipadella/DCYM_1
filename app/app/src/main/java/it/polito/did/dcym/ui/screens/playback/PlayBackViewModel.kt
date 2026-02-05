@@ -27,20 +27,18 @@ class PlaybackViewModel : ViewModel() {
 
     fun loadOrder(orderId: String) {
         viewModelScope.launch {
-            // ASCOLTA FIREBASE IN TEMPO REALE
             repository.getOrderFlow(orderId).collect { updatedOrder ->
                 if (updatedOrder != null) {
                     _uiState.update {
                         it.copy(
                             order = updatedOrder,
-                            // ✅ Usa l'helper property invece dell'Enum
-                            isCompleted = updatedOrder.isCompleted
+                            // Se lo stato è COMPLETED o ONGOING, consideriamo il ritiro completato
+                            isCompleted = updatedOrder.status == "COMPLETED" || updatedOrder.status == "ONGOING"
                         )
                     }
-
-                    // Aggiorniamo anche il timer se l'ordine è valido
-                    if (_uiState.value.timeLeftString == "24:00:00") {
-                        startCountdown() // Parte solo la prima volta
+                    // Avvia countdown solo se non è scaduto/completato e se è la prima volta
+                    if (_uiState.value.timeLeftString == "24:00:00" && !_uiState.value.isCompleted) {
+                        startCountdown()
                     }
                 }
             }
@@ -51,16 +49,22 @@ class PlaybackViewModel : ViewModel() {
         viewModelScope.launch {
             while (true) {
                 val order = _uiState.value.order ?: break
+
+                // --- CALCOLO SCADENZA AL VOLO ---
+                // Siccome non salviamo più expirationTimestamp, lo calcoliamo come 24h dopo l'acquisto
+                val expirationTime = order.purchaseTimestamp + (24 * 60 * 60 * 1000)
                 val now = System.currentTimeMillis()
-                val diff = order.expirationTimestamp - now
+                val diff = expirationTime - now
 
                 if (diff <= 0) {
                     _uiState.update { it.copy(timeLeftString = "SCADUTO") }
                     break
                 }
+
                 val hours = diff / (1000 * 60 * 60)
                 val minutes = (diff / (1000 * 60)) % 60
                 val seconds = (diff / 1000) % 60
+
                 _uiState.update {
                     it.copy(timeLeftString = "%02d:%02d:%02d".format(hours, minutes, seconds))
                 }

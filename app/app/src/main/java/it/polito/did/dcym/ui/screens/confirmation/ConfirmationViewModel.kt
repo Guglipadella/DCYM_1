@@ -33,19 +33,22 @@ class ConfirmationViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val products = repository.getProducts().first()
-            val machines = repository.getMachines().first()
             val product = products.find { it.id == productId }
+
+            val machines = repository.getMachines().first()
             val machine = machines.find { it.id == machineId }
 
-            val limitDate = LocalDate.now().plusDays(6)
-            val formatter = DateTimeFormatter.ofPattern("dd MMMM")
+            // Calcolo data restituzione (Mock: +1 giorno)
+            val tomorrow = LocalDate.now().plusDays(1)
+            val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+            val dateStr = tomorrow.format(formatter)
 
             _uiState.update {
                 it.copy(
                     product = product,
                     machine = machine,
-                    isLoading = false,
-                    maxReturnDate = limitDate.format(formatter)
+                    maxReturnDate = dateStr,
+                    isLoading = false
                 )
             }
         }
@@ -54,12 +57,11 @@ class ConfirmationViewModel(application: Application) : AndroidViewModel(applica
     fun confirmPurchase(isRent: Boolean, onOrderCreated: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-
-            val product = _uiState.value.product
-            val machine = _uiState.value.machine
+            val currentState = _uiState.value
+            val product = currentState.product
+            val machine = currentState.machine
 
             if (product == null || machine == null) {
-                Log.e("ConfirmationVM", "Prodotto o macchinetta mancanti")
                 _uiState.update { it.copy(isLoading = false) }
                 return@launch
             }
@@ -67,18 +69,28 @@ class ConfirmationViewModel(application: Application) : AndroidViewModel(applica
             val newOrderId = "ORD-${System.currentTimeMillis()}"
             val uniqueCode = (100000..999999).random().toString()
 
-            // ✅ Usa stringhe dirette, non Enum
+            // Calcolo costo
+            val cost = if (isRent) (product.priceRent ?: 0.0) else product.pricePurchase
+
+            // --- CREAZIONE ORDINE CORRETTA ---
             val order = Order(
                 id = newOrderId,
-                userId = "user_demo",
-                productId = product.id.toString(),
-                productName = product.name,
+                userId = "user_demo", // ID Utente mock
+                productId = product.id, // Ora è un Int
                 machineId = machine.id,
                 pickupCode = uniqueCode,
-                type = if (isRent) "RENTAL" else "PURCHASE",  // ✅ String
-                status = "PENDING",  // ✅ String
+
+                // Nuovi campi richiesti
+                productName = product.name,
+                isRent = isRent,
+
                 purchaseTimestamp = System.currentTimeMillis(),
-                expirationTimestamp = System.currentTimeMillis() + (24 * 60 * 60 * 1000)
+                totalCost = cost,
+
+                // Stato come stringa
+                status = "PENDING"
+
+                // RIMOSSI: expirationTimestamp (calcolato al volo), type (usiamo isRent)
             )
 
             val success = repository.saveOrder(order)
