@@ -32,7 +32,6 @@ import it.polito.did.dcym.ui.components.BottomTab
 import it.polito.did.dcym.ui.components.GraphPaperBackground
 import it.polito.did.dcym.ui.components.NavBarMode
 import it.polito.did.dcym.ui.theme.AppColors
-import kotlin.text.uppercase
 
 @Composable
 fun ProfileScreen(
@@ -220,19 +219,21 @@ fun ActiveRentalCard(order: Order) {
     val paper = MaterialTheme.colorScheme.surface
     val context = LocalContext.current
 
-    // Usa gli helper
-    val isOngoing = order.isOngoing
-    val isPendingRefund = order.isPendingRefund
+    // Logica icone e colori
+    val isOngoing = order.status.equals("ONGOING", ignoreCase = true)
 
+    // Icona: ic_rent se attivo, ic_refound se in attesa di rimborso
     val iconRes = if (isOngoing) {
         R.drawable.ic_rent
     } else {
+        // Cerca ic_refound, fallback a ic_storico
         val refoundId = context.resources.getIdentifier("ic_refound", "drawable", context.packageName)
         if (refoundId != 0) refoundId else R.drawable.ic_storico
     }
 
-    val statusColor = if (isOngoing) AppColors.VioletPastelMuted else Color(0xFFEF9A9A)
+    val statusColor = if (isOngoing) AppColors.VioletPastelMuted else Color(0xFFEF9A9A) // Viola o Rosso
     val statusTitle = if (isOngoing) "Noleggio attivo" else "In attesa di conferma"
+
     val statusBody = if (isOngoing) "Tempo rimanente: 23h" else "In fase di valutazione"
 
     Card(

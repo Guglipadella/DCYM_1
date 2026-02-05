@@ -30,12 +30,16 @@ class ProfileViewModel : ViewModel() {
 
     private fun loadProfileData() {
         viewModelScope.launch {
-            // Recupera gli ordini
+            // 1. Recupera gli ordini
             val allOrders = repository.getOrders().first()
 
-            // Filtra SOLO i noleggi attivi o in attesa di rimborso
+            // 2. Filtra SOLO i noleggi attivi o in attesa di rimborso
+            // Usiamo equals(ignoreCase = true) per sicurezza
             val activeList = allOrders.filter { order ->
-                order.isRent && (order.isOngoing || order.isPendingRefund)
+                order.isRent && (
+                        order.status.equals("ONGOING", ignoreCase = true) ||
+                                order.status.equals("PENDING_REFUND", ignoreCase = true)
+                        )
             }
 
             _uiState.update {
