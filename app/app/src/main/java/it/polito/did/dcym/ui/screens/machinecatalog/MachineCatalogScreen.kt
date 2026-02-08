@@ -69,6 +69,7 @@ fun MachineCatalogScreen(
             BottomNavBar(
                 mode = NavBarMode.MACHINE_FLOW,
                 selectedTab = BottomTab.MACHINES,
+                hasActiveRentals = uiState.hasActiveRentals,
                 onFabClick = onGoToHomeChoice,
                 onTabSelected = { tab ->
                     when (tab) {

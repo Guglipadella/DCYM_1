@@ -89,9 +89,31 @@ class HistoryViewModel : ViewModel() {
 
         // Prima filtriamo per Tab
         val tabFiltered = when (current.filter) {
-            HistoryFilter.IN_CORSO -> current.items.filter {
-                // In corso = PENDING o ONGOING
-                it.order.status == "PENDING" || it.order.status == "ONGOING"
+            HistoryFilter.IN_CORSO -> {
+                val now = System.currentTimeMillis()
+                val oneDayMs = 24L * 60 * 60 * 1000
+
+                current.items.filter { item ->
+                    val isPending = item.order.status == "PENDING"
+                    val isOngoing = item.order.status == "ONGOING"
+
+                    // Se non è nessuno dei due, lo scartiamo subito
+                    if (!isPending && !isOngoing) return@filter false
+
+                    // Calcolo scadenza: 24h per ritiro (PENDING), 6gg per restituzione (ONGOING)
+                    val expirationTime = if (isPending) {
+                        item.order.purchaseTimestamp + oneDayMs
+                    } else {
+                        item.order.purchaseTimestamp + (6 * oneDayMs)
+                    }
+
+                    // Mostra l'ordine solo se NON è ancora scaduto
+                    now < expirationTime
+                }.sortedWith(
+                    // ORDINE: Prima i noleggi attivi (ONGOING + isRent), poi per data decrescente
+                    compareByDescending<HistoryItem> { it.order.status == "ONGOING" && it.order.isRent }
+                        .thenByDescending { it.order.purchaseTimestamp }
+                )
             }
             HistoryFilter.TUTTI -> current.items
             HistoryFilter.NOLEGGI -> current.items.filter {

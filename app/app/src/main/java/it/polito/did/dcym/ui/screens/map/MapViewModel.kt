@@ -13,7 +13,8 @@ data class MapUiState(
     val machines: List<Machine> = emptyList(),
     val filteredMachines: List<Machine> = emptyList(), // Lista filtrata per la UI
     val searchQuery: String = "", // Testo barra di ricerca
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val hasActiveRentals: Boolean = false
 )
 
 class MapViewModel : ViewModel() {
@@ -23,8 +24,18 @@ class MapViewModel : ViewModel() {
 
     init {
         loadMachines()
+        observeActiveRentals() // <--- AGGIUNGI QUESTA CHIAMATA
     }
 
+    // --- AGGIUNGI QUESTA FUNZIONE ---
+    private fun observeActiveRentals() {
+        viewModelScope.launch {
+            repository.getOrders().collect { allOrders ->
+                val active = allOrders.any { it.status == "ONGOING" && it.isRent }
+                _uiState.update { it.copy(hasActiveRentals = active) }
+            }
+        }
+    }
     private fun loadMachines() {
         viewModelScope.launch {
             repository.getMachines().collect { list ->

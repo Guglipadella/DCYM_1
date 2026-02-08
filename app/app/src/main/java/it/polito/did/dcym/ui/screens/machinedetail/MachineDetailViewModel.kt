@@ -12,13 +12,22 @@ import kotlinx.coroutines.launch
 
 data class MachineDetailUiState(
     val machine: Machine? = null,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val hasActiveRentals: Boolean = false
 )
 
 class MachineDetailViewModel : ViewModel() {
     private val repository = FirebaseRepository()
     private val _uiState = MutableStateFlow(MachineDetailUiState())
     val uiState = _uiState.asStateFlow()
+    init {
+        viewModelScope.launch {
+            repository.getOrders().collect { allOrders ->
+                val hasActive = allOrders.any { it.status == "ONGOING" && it.isRent }
+                _uiState.update { it.copy(hasActiveRentals = hasActive) }
+            }
+        }
+    }
 
     fun loadMachine(machineId: String) {
         viewModelScope.launch {

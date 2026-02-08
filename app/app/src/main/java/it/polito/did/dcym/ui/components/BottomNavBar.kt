@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -31,7 +32,7 @@ import it.polito.did.dcym.R
 enum class NavBarMode { PRODUCT_FLOW, MACHINE_FLOW }
 
 /**
- * Tab selezionata SOLO per evidenziare l’icona (UI).
+ * Tab selezionata SOLO per evidenziare l'icona (UI).
  * La navigazione la gestisci fuori (MainActivity / NavHost) via callback.
  */
 enum class BottomTab { HOME, HISTORY, MACHINES, PROFILE, HELP, CATALOGO }
@@ -53,8 +54,9 @@ private data class NavBarConfig(
 fun BottomNavBar(
     mode: NavBarMode = NavBarMode.PRODUCT_FLOW,
     selectedTab: BottomTab = BottomTab.CATALOGO,
-    onFabClick: () -> Unit = {},                 // FAB centrale -> HomeChoice
-    onTabSelected: (BottomTab) -> Unit = {}      // click su un tab
+    hasActiveRentals: Boolean = false, // ⬅️ PARAMETRO AGGIUNTO
+    onFabClick: () -> Unit = {},
+    onTabSelected: (BottomTab) -> Unit = {}
 ) {
     // Layout
     val barHeight = 76.dp
@@ -74,7 +76,6 @@ fun BottomNavBar(
 
     // Config tabs
     val config = when (mode) {
-        // FLUSSO PRODOTTO: Profilo, Acquisti | Catalogo, Aiuto
         NavBarMode.PRODUCT_FLOW -> NavBarConfig(
             left1 = NavItem(
                 tab = BottomTab.PROFILE,
@@ -98,8 +99,6 @@ fun BottomNavBar(
             )
         )
 
-        // FLUSSO MACCHINETTE: Profilo, Storico | Macchinette, Aiuto
-        // Sostituiamo SOLO Catalogo con Macchinette per coerenza posizionale
         NavBarMode.MACHINE_FLOW -> NavBarConfig(
             left1 = NavItem(
                 tab = BottomTab.PROFILE,
@@ -112,9 +111,8 @@ fun BottomNavBar(
                 iconRes = R.drawable.ic_storico
             ),
             right1 = NavItem(
-                // Questa è la tab attiva quando sei su MapScreen
                 tab = BottomTab.MACHINES,
-                label = "macchinette", // O "mappa" se preferisci
+                label = "macchinette",
                 iconRes = R.drawable.ic_distributori
             ),
             right2 = NavItem(
@@ -125,14 +123,13 @@ fun BottomNavBar(
         )
     }
 
-    // Wrapper che evita “tagli” sui device con gesture bar
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding(),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Barra (sfondo + bordo insieme, così non “maschera” male)
+        // Barra
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -142,7 +139,7 @@ fun BottomNavBar(
                 .border(2.dp, outline, barShape)
         )
 
-        // FAB centrale nel “cutout”
+        // FAB centrale
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -175,6 +172,7 @@ fun BottomNavBar(
                 .align(Alignment.BottomCenter),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // LEFT 1 - PROFILO (con possibile badge)
             NavBarItem(
                 item = config.left1,
                 isSelected = selectedTab == config.left1.tab,
@@ -183,9 +181,11 @@ fun BottomNavBar(
                 indicatorColor = indicator,
                 outlineColor = outline,
                 onClick = { onTabSelected(config.left1.tab) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                showBadge = hasActiveRentals && config.left1.tab == BottomTab.PROFILE
             )
 
+            // LEFT 2 - HISTORY
             NavBarItem(
                 item = config.left2,
                 isSelected = selectedTab == config.left2.tab,
@@ -194,11 +194,13 @@ fun BottomNavBar(
                 indicatorColor = indicator,
                 outlineColor = outline,
                 onClick = { onTabSelected(config.left2.tab) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                showBadge = false
             )
 
             Spacer(modifier = Modifier.width(fabSize + 18.dp))
 
+            // RIGHT 1 - CATALOGO/MACHINES
             NavBarItem(
                 item = config.right1,
                 isSelected = selectedTab == config.right1.tab,
@@ -207,9 +209,11 @@ fun BottomNavBar(
                 indicatorColor = indicator,
                 outlineColor = outline,
                 onClick = { onTabSelected(config.right1.tab) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                showBadge = false
             )
 
+            // RIGHT 2 - HELP
             NavBarItem(
                 item = config.right2,
                 isSelected = selectedTab == config.right2.tab,
@@ -218,7 +222,8 @@ fun BottomNavBar(
                 indicatorColor = indicator,
                 outlineColor = outline,
                 onClick = { onTabSelected(config.right2.tab) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                showBadge = false
             )
         }
     }
@@ -233,7 +238,8 @@ private fun NavBarItem(
     indicatorColor: androidx.compose.ui.graphics.Color,
     outlineColor: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBadge: Boolean = false // ⬅️ PARAMETRO AGGIUNTO
 ) {
     Column(
         modifier = modifier
@@ -254,16 +260,32 @@ private fun NavBarItem(
             Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
         }
 
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = pillModifier
-        ) {
-            Icon(
-                painter = painterResource(item.iconRes),
-                contentDescription = item.label,
-                modifier = Modifier.size(24.dp),
-                tint = if (isSelected) selectedColor else unselectedColor
-            )
+        // ⬇️ BOX WRAPPER per contenere icona + badge
+        Box(contentAlignment = Alignment.Center) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = pillModifier
+            ) {
+                Icon(
+                    painter = painterResource(item.iconRes),
+                    contentDescription = item.label,
+                    modifier = Modifier.size(24.dp),
+                    tint = if (isSelected) selectedColor else unselectedColor
+                )
+            }
+
+            // ⬇️ PALLINO ROSSO (badge notification)
+            if (showBadge) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .shadow(3.dp, CircleShape)
+                        .background(Color(0xFFEF5350), CircleShape)
+                        .border(2.dp, Color.White, CircleShape)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 6.dp, y = (-2).dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(4.dp))

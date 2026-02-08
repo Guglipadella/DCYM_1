@@ -14,13 +14,23 @@ data class ProductInMachineUiState(
     val product: Product? = null,
     val machineId: String = "",
     val userBalance: Double = 20.00, // Saldo mock
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val hasActiveRentals: Boolean = false
 )
 
 class ProductInMachineViewModel : ViewModel() {
     private val repository = FirebaseRepository()
     private val _uiState = MutableStateFlow(ProductInMachineUiState())
     val uiState = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            repository.getOrders().collect { allOrders ->
+                val hasActive = allOrders.any { it.status == "ONGOING" && it.isRent }
+                _uiState.update { it.copy(hasActiveRentals = hasActive) }
+            }
+        }
+    }
 
     fun loadData(productId: Int, machineId: String) {
         viewModelScope.launch {

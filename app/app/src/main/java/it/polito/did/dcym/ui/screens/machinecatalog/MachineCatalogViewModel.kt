@@ -25,13 +25,22 @@ data class MachineCatalogUiState(
     val selectedFilter: MachineCatalogFilter = MachineCatalogFilter.All,
     val searchQuery: String = "",
     val userBalance: Double = 20.00,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val hasActiveRentals: Boolean = false
 )
 
 class MachineCatalogViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository()
     private val favoritesRepo = FavoritesRepository.getInstance(application)
 
+    init {
+        viewModelScope.launch {
+            repository.getOrders().collect { allOrders ->
+                val hasActive = allOrders.any { it.status == "ONGOING" && it.isRent }
+                _uiState.update { it.copy(hasActiveRentals = hasActive) }
+            }
+        }
+    }
     private val _uiState = MutableStateFlow(MachineCatalogUiState())
     val uiState = _uiState.asStateFlow()
 

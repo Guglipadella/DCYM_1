@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,11 +25,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.polito.did.dcym.R
+import it.polito.did.dcym.data.model.Order
 import it.polito.did.dcym.ui.components.BottomNavBar
 import it.polito.did.dcym.ui.components.BottomTab
 import it.polito.did.dcym.ui.components.GraphPaperBackground
 import it.polito.did.dcym.ui.components.NavBarMode
 import it.polito.did.dcym.ui.theme.AppColors
+
 
 @Composable
 fun PlaybackScreen(
@@ -46,13 +49,15 @@ fun PlaybackScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
+
     val outline = MaterialTheme.colorScheme.outline
 
     Scaffold(
         bottomBar = {
             BottomNavBar(
                 mode = NavBarMode.PRODUCT_FLOW,
-                selectedTab = BottomTab.HISTORY, // Manteniamo focus su storico o home
+                selectedTab = BottomTab.HISTORY,
+                hasActiveRentals = uiState.hasActiveRentals,// Manteniamo focus su storico o home
                 onFabClick = onGoToHomeChoice,
                 onTabSelected = { tab ->
                     when (tab) {

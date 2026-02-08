@@ -9,12 +9,14 @@ import it.polito.did.dcym.data.repository.FirebaseRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ProductDetailUiState(
     val product: Product? = null,
     val availableMachines: List<Machine> = emptyList(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val hasActiveRentals: Boolean = false
 )
 
 class ProductDetailViewModel(application: Application) : AndroidViewModel(application) {
@@ -22,7 +24,14 @@ class ProductDetailViewModel(application: Application) : AndroidViewModel(applic
     private val repository = FirebaseRepository()
     private val _uiState = MutableStateFlow(ProductDetailUiState())
     val uiState = _uiState.asStateFlow()
-
+    init {
+        viewModelScope.launch {
+            repository.getOrders().collect { allOrders ->
+                val hasActive = allOrders.any { it.status == "ONGOING" && it.isRent }
+                _uiState.update { it.copy(hasActiveRentals = hasActive) }
+            }
+        }
+    }
     fun loadProductData(productId: Int) {
         println("DEBUG: Caricamento dati per prodotto ID: $productId")
         viewModelScope.launch {
@@ -51,11 +60,14 @@ class ProductDetailViewModel(application: Application) : AndroidViewModel(applic
                 Pair(foundProduct, validMachines)
 
             }.collect { (product, machines) ->
-                _uiState.value = ProductDetailUiState(
-                    product = product,
-                    availableMachines = machines,
-                    isLoading = false
-                )
+                _uiState.update { current ->
+                    current.copy(
+                        product = product,
+                        availableMachines = machines,
+                        isLoading = false
+                        // hasActiveRentals rimane quello calcolato dall'init
+                    )
+                }
             }
         }
     }

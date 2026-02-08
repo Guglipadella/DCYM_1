@@ -16,16 +16,18 @@ data class ProfileUiState(
     val activeRentals: List<Order> = emptyList(),
     val pendingRefundOrders: List<Order> = emptyList(),
     val machineNames: Map<String, String> = emptyMap(),
+    val productImages: Map<String, String> = emptyMap(), // Map productId -> imageResName
     val userName: String = "Guglielmo Padella",
     val userBalance: Double = 20.0,
     val searchQuery: String = "",
     val isLoading: Boolean = true,
     val isPlayingSound: Boolean = false
+
 )
 
 class ProfileViewModel : ViewModel() {
     private val repository = FirebaseRepository()
-    private val dtmfPlayer = DtmfPlayer() // DtmfPlayer non richiede context
+    private val dtmfPlayer = DtmfPlayer()
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -35,17 +37,21 @@ class ProfileViewModel : ViewModel() {
 
     private fun loadProfileData() {
         viewModelScope.launch {
-            // Recuperiamo i nomi delle macchinette dal repository
+            // Carichiamo macchinette E prodotti
             val machines = repository.getMachines().first()
+            val products = repository.getProducts().first() // <--- Aggiungi questo
+
             val machineMap = machines.associate { it.id to it.name }
+            val productImageMap = products.associate { it.id.toString() to it.imageResName } // <--- Crea la mappa
 
             repository.getOrders().collect { allOrders ->
                 _uiState.update { state ->
                     state.copy(
                         pendingPickupOrders = allOrders.filter { it.status == "PENDING" },
-                        activeRentals = allOrders.filter { it.status == "ONGOING" && it.isRent }, // rent = true
+                        activeRentals = allOrders.filter { it.status == "ONGOING" && it.isRent },
                         pendingRefundOrders = allOrders.filter { it.status == "PENDING_REFUND" },
                         machineNames = machineMap,
+                        productImages = productImageMap, // <--- Passa la mappa allo stato
                         isLoading = false
                     )
                 }
@@ -53,12 +59,11 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    // Copiato esattamente da HistoryViewModel.kt
     fun playSound(code: String) {
         if (_uiState.value.isPlayingSound) return
         viewModelScope.launch {
             _uiState.update { it.copy(isPlayingSound = true) }
-            dtmfPlayer.playSequence(code) { /* no-op */ }
+            dtmfPlayer.playSequence(code) { }
             _uiState.update { it.copy(isPlayingSound = false) }
         }
     }

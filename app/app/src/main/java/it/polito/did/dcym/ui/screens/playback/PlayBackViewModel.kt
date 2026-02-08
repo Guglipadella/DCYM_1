@@ -16,15 +16,25 @@ data class PlaybackUiState(
     val timeLeftString: String = "24:00:00",
     val isPlaying: Boolean = false,
     val isCompleted: Boolean = false,
-    val currentDigitIndex: Int = -1
+    val currentDigitIndex: Int = -1,
+    val hasActiveRentals: Boolean = false
 )
 
 class PlaybackViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(PlaybackUiState())
     val uiState = _uiState.asStateFlow()
+
     private val dtmfPlayer = DtmfPlayer()
     private val repository = FirebaseRepository()
 
+    init {
+        viewModelScope.launch {
+            repository.getOrders().collect { allOrders ->
+                val hasActive = allOrders.any { it.status == "ONGOING" && it.isRent }
+                _uiState.update { it.copy(hasActiveRentals = hasActive) }
+            }
+        }
+    }
     fun loadOrder(orderId: String) {
         viewModelScope.launch {
             repository.getOrderFlow(orderId).collect { updatedOrder ->

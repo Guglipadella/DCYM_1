@@ -74,6 +74,7 @@ fun CatalogScreen(
             BottomNavBar(
                 mode = NavBarMode.PRODUCT_FLOW,
                 selectedTab = BottomTab.CATALOGO,
+                hasActiveRentals = uiState.hasActiveRentals,
                 onFabClick = onGoToHomeChoice,
                 onTabSelected = { tab ->
                     when (tab) {

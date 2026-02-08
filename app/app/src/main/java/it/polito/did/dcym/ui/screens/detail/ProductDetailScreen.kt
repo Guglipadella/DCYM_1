@@ -59,14 +59,15 @@ fun ProductDetailScreen(
         product = uiState.product,
         availableMachines = uiState.availableMachines,
         isLoading = uiState.isLoading,
+        hasActiveRentals = uiState.hasActiveRentals, // <-- PASSA IL VALORE QUI
         onBackClick = onBackClick,
         onMachineSelect = onMachineSelect,
         onMachineInfoClick = onMachineInfoClick,
         onGoToHomeChoice = onGoToHomeChoice,
         onGoToCatalog = onGoToCatalog,
-        onGoToProfile = onGoToHomeChoice,
-        onGoToHistory = {},
-        onGoToHelp = {}
+        onGoToProfile = onGoToProfile, // Corretto (era onGoToHomeChoice)
+        onGoToHistory = onGoToHistory, // Collegato correttamente
+        onGoToHelp = onGoToHelp        // Collegato correttamente
     )
 }
 
@@ -85,6 +86,7 @@ fun ProductDetailContent(
     onGoToProfile: () -> Unit,
     onGoToHistory: () -> Unit,
     onGoToHelp: () -> Unit,
+    hasActiveRentals: Boolean,
 ) {
     val bg = Color.Transparent
 
@@ -123,6 +125,7 @@ fun ProductDetailContent(
             BottomNavBar(
                 mode = NavBarMode.PRODUCT_FLOW,
                 selectedTab = BottomTab.CATALOGO,
+                hasActiveRentals = hasActiveRentals,
                 onFabClick = onGoToHomeChoice,
                 onTabSelected = { tab ->
                     when (tab) {

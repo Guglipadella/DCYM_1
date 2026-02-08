@@ -36,7 +36,9 @@ import it.polito.did.dcym.ui.components.BottomNavBar
 import it.polito.did.dcym.ui.components.BottomTab
 import it.polito.did.dcym.ui.components.GraphPaperBackground
 import it.polito.did.dcym.ui.components.NavBarMode
+import it.polito.did.dcym.ui.screens.profile.ReturnDetailDialog
 import it.polito.did.dcym.ui.theme.AppColors
+import it.polito.did.dcym.ui.screens.profile.ProfileViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -49,6 +51,10 @@ fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // Calcola se ci sono noleggi attivi per mostrare il pallino sulla Navbar
+    val hasActiveRentals = remember(uiState.items) {
+        uiState.items.any { it.order.status == "ONGOING" && it.order.isRent }
+    }
     var selectedItemForDetail by remember { mutableStateOf<HistoryItem?>(null) }
 
     Scaffold(
@@ -56,6 +62,7 @@ fun HistoryScreen(
             BottomNavBar(
                 mode = NavBarMode.PRODUCT_FLOW,
                 selectedTab = BottomTab.HISTORY,
+                hasActiveRentals = hasActiveRentals,
                 onFabClick = onGoToHomeChoice,
                 onTabSelected = { tab ->
                     when (tab) {
@@ -128,14 +135,32 @@ fun HistoryScreen(
         }
 
         // DIALOG DETTAGLIO
+        // DIALOG DETTAGLIO
         if (selectedItemForDetail != null) {
             val item = selectedItemForDetail!!
-            HistoryDetailDialog(
-                item = item,
-                isPlaying = uiState.isPlayingSound,
-                onDismiss = { selectedItemForDetail = null },
-                onPlaySound = { viewModel.playSound(item.order.pickupCode) }
-            )
+
+            // CONTROLLO: Se è un noleggio in corso, usa il Dialog della restituzione
+            if (item.order.status == "ONGOING" && item.order.isRent) {
+                ReturnDetailDialog(
+                    order = item.order,
+                    machineName = item.machineName,
+                    // Usiamo ProfileViewModel direttamente senza il percorso completo it.polito...
+                    refundRows = calculateDynamicRefunds(item.price, item.order.purchaseTimestamp).map { row ->
+                        ProfileViewModel.RefundRow(row.label, row.amount)
+                    },
+                    isPlaying = uiState.isPlayingSound,
+                    onDismiss = { selectedItemForDetail = null },
+                    onPlaySound = { viewModel.playSound(item.order.pickupCode) }
+                )
+            } else {
+                // Se è un acquisto normale o un ordine ritirato/scaduto, usa il dialog standard
+                HistoryDetailDialog(
+                    item = item,
+                    isPlaying = uiState.isPlayingSound,
+                    onDismiss = { selectedItemForDetail = null },
+                    onPlaySound = { viewModel.playSound(item.order.pickupCode) }
+                )
+            }
         }
     }
 }
@@ -191,16 +216,14 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
     val paper = MaterialTheme.colorScheme.surface
     val yellowAction = Color(0xFFFFD54F)
 
-    // Usa solo i campi di Order.kt
     val isRental = item.order.isRent
     val typeIcon = if (isRental) R.drawable.ic_rent else R.drawable.ic_buy
 
-    // Colori basati sullo status
     val statusColor = when (item.order.status) {
-        "PENDING" -> Color(0xFFE57373) // Rosso - in attesa di ritiro
-        "ONGOING" -> Color(0xFFFFB74D) // Arancione - in uso
-        "PENDING_REFUND" -> Color(0xFF9575CD) // Viola - attesa rimborso
-        else -> AppColors.GreenPastelMuted // Verde - completato
+        "PENDING" -> Color(0xFFE57373)
+        "ONGOING" -> Color(0xFFFFB74D)
+        "PENDING_REFUND" -> Color(0xFF9575CD)
+        else -> AppColors.GreenPastelMuted
     }
 
     val expirationLabel = when (item.order.status) {
@@ -209,11 +232,10 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
         else -> ""
     }
 
-    // Calcola tempo rimanente
     val oneDayMs = 24L * 60 * 60 * 1000
     val expirationTime = when (item.order.status) {
-        "PENDING" -> item.order.purchaseTimestamp + oneDayMs  // 24h per ritirare
-        "ONGOING" -> item.order.purchaseTimestamp + (6 * oneDayMs)  // 6 giorni per restituire
+        "PENDING" -> item.order.purchaseTimestamp + oneDayMs
+        "ONGOING" -> item.order.purchaseTimestamp + (6 * oneDayMs)
         else -> 0L
     }
 
@@ -221,69 +243,99 @@ fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
         formatTimeRemaining(expirationTime)
     } else ""
 
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = paper),
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(16.dp),
+    // MODIFICA QUI: Box wrapper per permettere al pallino di uscire
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .border(2.dp, outline, RoundedCornerShape(16.dp))
+            .padding(8.dp) // ⬅️ Più padding per dare spazio al pallino
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Card(
+            onClick = onClick,
+            colors = CardDefaults.cardColors(containerColor = paper),
+            elevation = CardDefaults.cardElevation(4.dp),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(2.dp, outline, RoundedCornerShape(16.dp))
         ) {
-            // ICONA TIPO (Buy/Rent)
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    painter = painterResource(typeIcon),
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(Modifier.width(16.dp))
-
-            // INFO CENTRALI
-            Column(modifier = Modifier.weight(1f)) {
-                Text(item.productName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(item.machineName, fontSize = 12.sp, color = Color.Gray)
-
-                if (expirationLabel.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(expirationLabel, fontSize = 10.sp, color = statusColor, fontWeight = FontWeight.Bold)
-                    Text(timeRemaining, fontSize = 14.sp, fontWeight = FontWeight.Black, color = statusColor)
-                }
-            }
-
-            // PREZZO E FRECCIA
-            Column(horizontalAlignment = Alignment.End) {
-                Text("${item.price.toInt()} €", fontWeight = FontWeight.Black, fontSize = 16.sp)
-                Spacer(Modifier.height(8.dp))
-
+                // ICONA TIPO (Buy/Rent)
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .background(yellowAction, RoundedCornerShape(12.dp))
-                        .border(1.dp, outline, RoundedCornerShape(12.dp)),
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_arrow_right),
-                        contentDescription = "Vai al dettaglio",
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
+                        painter = painterResource(typeIcon),
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                Spacer(Modifier.width(16.dp))
+
+                // INFO CENTRALI
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(item.productName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(item.machineName, fontSize = 12.sp, color = Color.Gray)
+
+                    if (expirationLabel.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            expirationLabel,
+                            fontSize = 10.sp,
+                            color = statusColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            timeRemaining,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            color = statusColor
+                        )
+                    }
+                }
+
+                // PREZZO E FRECCIA
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("${item.price.toInt()} €", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                    Spacer(Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(yellowAction, RoundedCornerShape(12.dp))
+                            .border(1.dp, outline, RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_arrow_right),
+                            contentDescription = "Vai al dettaglio",
+                            tint = Color.Black,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
+        }
+
+        // ⬇️ PALLINO ROSSO - ORA FUORI DALLA CARD
+        if (item.order.status == "ONGOING" && item.order.isRent) {
+            Box(
+                modifier = Modifier
+                    .size(20.dp) // ⬅️ Leggermente più grande (era 16.dp)
+                    .shadow(4.dp, CircleShape) // ⬅️ Shadow per più visibilità
+                    .background(Color(0xFFEF5350), CircleShape) // ⬅️ Rosso più vivace
+                    .border(3.dp, Color.White, CircleShape) // ⬅️ Bordo più spesso
+                    .align(Alignment.TopStart)
+                    .offset(x = 4.dp, y = (-4).dp) // ⬅️ Offset negativo per farlo uscire
+            )
         }
     }
 }
