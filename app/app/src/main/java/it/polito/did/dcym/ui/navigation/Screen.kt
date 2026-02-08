@@ -10,6 +10,7 @@ sealed class Screen(val route: String) {
     data object History : Screen("history")
     data object Help : Screen("help")
 
+
     // ✅ Flow prodotto
     data object ProductDetail : Screen("product_detail/{productId}") {
         fun createRoute(productId: String) = "product_detail/$productId"

@@ -28,6 +28,7 @@ import it.polito.did.dcym.ui.screens.catalog.CatalogScreen
 import it.polito.did.dcym.ui.screens.detail.ProductDetailScreen
 import it.polito.did.dcym.ui.screens.purchase.PurchaseOptionsScreen
 import it.polito.did.dcym.ui.screens.confirmation.ConfirmationScreen
+import it.polito.did.dcym.ui.screens.help.HelpScreen
 import it.polito.did.dcym.ui.screens.history.HistoryScreen
 import it.polito.did.dcym.ui.screens.profile.ProfileScreen
 import it.polito.did.dcym.ui.screens.playback.PlaybackScreen
@@ -355,14 +356,17 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        /*
-                        composable(Screen.History.route) {
-                            PlaceholderScreen("Storico (in costruzione)")
-                        }
+
+                        // SCHERMATA AIUTO
                         composable(Screen.Help.route) {
-                            PlaceholderScreen("Aiuto (in costruzione)")
+                            HelpScreen(
+                                onGoToHomeChoice = { navController.navigate(Screen.Home.route) },
+                                onGoToCatalog = { navController.navigate(Screen.Catalog.route) },
+                                onGoToProfile = { navController.navigate(Screen.Profile.route) },
+                                onGoToHistory = { navController.navigate(Screen.History.route) },
+                                onGoToHelp = { navController.navigate(Screen.Help.route) }
+                            )
                         }
-                        */
                     }
                 }
             }

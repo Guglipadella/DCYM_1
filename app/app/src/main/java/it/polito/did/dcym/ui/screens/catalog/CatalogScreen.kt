@@ -113,7 +113,7 @@ fun CatalogScreen(
 
                 // HEADER "CARD"
                 CatalogHeaderCard(
-                    userName = "Mario",
+                    userName = "Giovanni",
                     balanceText = "La tua paghetta: 20€",
                     onProfileClick = { /* se vuoi: nav al profilo */ }
                 )

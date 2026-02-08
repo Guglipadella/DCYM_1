@@ -17,7 +17,7 @@ data class ProfileUiState(
     val pendingRefundOrders: List<Order> = emptyList(),
     val machineNames: Map<String, String> = emptyMap(),
     val productImages: Map<String, String> = emptyMap(), // Map productId -> imageResName
-    val userName: String = "Guglielmo Padella",
+    val userName: String = "Giovanni Malnati",
     val userBalance: Double = 20.0,
     val searchQuery: String = "",
     val isLoading: Boolean = true,
