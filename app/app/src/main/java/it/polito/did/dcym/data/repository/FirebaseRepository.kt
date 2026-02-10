@@ -141,4 +141,8 @@ class FirebaseRepository {
             false
         }
     }
+
+    fun updateOrderStatus(orderId: String, newStatus: String) {
+        database.getReference("orders").child(orderId).child("status").setValue(newStatus)
+    }
 }

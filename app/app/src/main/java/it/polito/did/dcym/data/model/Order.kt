@@ -21,6 +21,6 @@ data class Order(
     val purchaseTimestamp: Long = 0,
     val totalCost: Double = 0.0,
 
-    // STATO: "PENDING", "ONGOING", "PENDING_REFUND", "COMPLETED"
+    // STATO: "PENDING", "ONGOING", "RETURNED", "PENDING_REFUND", "COMPLETED"
     val status: String = "PENDING"
 )

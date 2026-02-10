@@ -94,25 +94,27 @@ class HistoryViewModel : ViewModel() {
                 val oneDayMs = 24L * 60 * 60 * 1000
 
                 current.items.filter { item ->
-                    val isPending = item.order.status == "PENDING"
-                    val isOngoing = item.order.status == "ONGOING"
+                    val status = item.order.status
+                    val isPending = status == "PENDING"
+                    val isOngoing = status == "ONGOING"
+                    val isReturned = status == "RETURNED" // Nuovo stato Arduino
 
-                    // Se non è nessuno dei due, lo scartiamo subito
-                    if (!isPending && !isOngoing) return@filter false
+                    // Includiamo PENDING, ONGOING e RETURNED negli ordini "In Corso"
+                    if (!isPending && !isOngoing && !isReturned) return@filter false
 
-                    // Calcolo scadenza: 24h per ritiro (PENDING), 6gg per restituzione (ONGOING)
+                    // Calcolo scadenza: 24h per ritiro (PENDING), 6gg per restituzione
                     val expirationTime = if (isPending) {
                         item.order.purchaseTimestamp + oneDayMs
                     } else {
                         item.order.purchaseTimestamp + (6 * oneDayMs)
                     }
 
-                    // Mostra l'ordine solo se NON è ancora scaduto
                     now < expirationTime
                 }.sortedWith(
-                    // ORDINE: Prima i noleggi attivi (ONGOING + isRent), poi per data decrescente
-                    compareByDescending<HistoryItem> { it.order.status == "ONGOING" && it.order.isRent }
-                        .thenByDescending { it.order.purchaseTimestamp }
+                    // Ordiniamo: prima i noleggi attivi o pronti per il termine (ONGOING/RETURNED)
+                    compareByDescending<HistoryItem> {
+                        (it.order.status == "ONGOING" || it.order.status == "RETURNED") && it.order.isRent
+                    }.thenByDescending { it.order.purchaseTimestamp }
                 )
             }
             HistoryFilter.TUTTI -> current.items
@@ -145,5 +147,8 @@ class HistoryViewModel : ViewModel() {
             dtmfPlayer.playSequence(code) { }
             _uiState.update { it.copy(isPlayingSound = false) }
         }
+    }
+    fun completeReturn(orderId: String) {
+        repository.updateOrderStatus(orderId, "PENDING_REFUND")
     }
 }

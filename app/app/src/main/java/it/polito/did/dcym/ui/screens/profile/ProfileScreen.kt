@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,13 @@ import it.polito.did.dcym.data.model.Order
 import it.polito.did.dcym.ui.components.*
 import it.polito.did.dcym.ui.screens.history.HistoryDetailDialog
 import it.polito.did.dcym.ui.screens.history.HistoryItem
+
+// Immagine
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.launch
+import androidx.compose.ui.graphics.asImageBitmap
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,14 +134,19 @@ fun ProfileScreen(
         }
 
         // DIALOG RESTITUZIONE PRODOTTO
+
         if (selectedOrderForReturn != null) {
+            // Cerchiamo l'ordine live nello uiState per avere lo status aggiornato (da ONGOING a RETURNED)
+            val liveOrder = uiState.activeRentals.find { it.id == selectedOrderForReturn!!.id }
+
             ReturnDetailDialog(
-                order = selectedOrderForReturn!!,
+                order = liveOrder ?: selectedOrderForReturn!!,
                 machineName = uiState.machineNames[selectedOrderForReturn!!.machineId] ?: selectedOrderForReturn!!.machineId,
                 refundRows = viewModel.getFutureRefundOptions(selectedOrderForReturn!!),
                 isPlaying = uiState.isPlayingSound,
                 onDismiss = { selectedOrderForReturn = null },
-                onPlaySound = { viewModel.playSound(it) }
+                onPlaySound = { viewModel.playSound(it) },
+                onTerminate = { viewModel.completeReturn(it) } // Nuova callback
             )
         }
 
@@ -157,17 +170,31 @@ fun ReturnDetailDialog(
     refundRows: List<ProfileViewModel.RefundRow>,
     isPlaying: Boolean,
     onDismiss: () -> Unit,
-    onPlaySound: (String) -> Unit
+    onPlaySound: (String) -> Unit,
+    onTerminate: (String) -> Unit
 ) {
     val outline = MaterialTheme.colorScheme.outline
     val paper = MaterialTheme.colorScheme.surface
     val yellowAction = Color(0xFFFFD54F)
 
+    // Stato temporaneo per la foto (non salvata nel DB)
+    var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var showConfirmation by remember { mutableStateOf(false) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        capturedBitmap = bitmap
+    }
+
+    // Abilitato solo se: Foto presente E Arduino ha aggiornato lo stato a "RETURNED"
+    val canTerminate = capturedBitmap != null && order.status == "RETURNED"
+
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 650.dp)
+                .heightIn(max = 720.dp)
                 .shadow(8.dp, RoundedCornerShape(24.dp))
                 .background(paper, RoundedCornerShape(24.dp))
                 .border(2.dp, outline, RoundedCornerShape(24.dp))
@@ -177,14 +204,13 @@ fun ReturnDetailDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
+                // HEADER
                 Box(Modifier.fillMaxWidth()) {
                     Text(
                         text = "Restituzione Prodotto",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 48.dp)
+                        modifier = Modifier.align(Alignment.Center).padding(horizontal = 48.dp)
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterEnd)) {
                         Icon(Icons.Default.Close, contentDescription = "Chiudi")
@@ -193,19 +219,82 @@ fun ReturnDetailDialog(
 
                 Spacer(Modifier.height(24.dp))
 
-                // TUTORIAL SPAZIATO
+                // --- TUTORIAL ---
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), // Spazio extra sopra/sotto
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     TutorialItem(1, "Recati alla macchinetta", machineName)
-                    TutorialItem(2, "Verifica integrità", "Scatta una foto al prodotto per confermarne lo stato.")
+
+                    // PUNTO 2: VERIFICA INTEGRITÀ + CAMERA MOCKUP
+                    Column {
+                        TutorialItem(2, "Verifica integrità", "Scatta una foto al prodotto per confermarne lo stato.")
+                        Spacer(Modifier.height(12.dp))
+
+                        if (capturedBitmap == null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(130.dp)
+                                    .background(Color(0xFFF8F9FA), RoundedCornerShape(16.dp))
+                                    .border(2.dp, outline.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                                    .clickable { cameraLauncher.launch() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.PhotoCamera,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(36.dp),
+                                        tint = Color.Gray
+                                    )
+                                    Spacer(Modifier.height(10.dp))
+                                    Text(
+                                        text = "Scatta la foto per procedere.\nSenza foto non potrai terminare.",
+                                        fontSize = 13.sp,
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Bold, // Contrasto alto e grassetto
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            // PREVIEW FOTO + PULSANTE RIFAI
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Image(
+                                    bitmap = capturedBitmap!!.asImageBitmap(),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(160.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .border(2.dp, outline.copy(alpha = 0.2f), RoundedCornerShape(16.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Button(
+                                    onClick = { cameraLauncher.launch() },
+                                    modifier = Modifier
+                                        .height(44.dp)
+                                        .border(2.dp, Color.Red, RoundedCornerShape(12.dp)),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.Transparent,
+                                        contentColor = Color.Red
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("RIFAI FOTO", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
                     TutorialItem(3, "Riponi l'oggetto", "Inseriscilo nel locker e chiudi con cura lo sportello.")
                 }
 
                 Spacer(Modifier.height(32.dp))
 
-                // TASTO PLAY GIALLO
+                // TASTO PLAY (RIFERIMENTO PICKUP CODE)
                 Button(
                     onClick = { onPlaySound(order.pickupCode) },
                     enabled = !isPlaying,
@@ -230,6 +319,7 @@ fun ReturnDetailDialog(
 
                 Spacer(Modifier.height(32.dp))
 
+                // --- PIANO RIMBORSI ---
                 Text(
                     "Piano Rimborsi",
                     fontWeight = FontWeight.Bold,
@@ -244,33 +334,79 @@ fun ReturnDetailDialog(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         refundRows.forEach { row ->
+                            val isToday = row.label.contains("Oggi", ignoreCase = true)
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(row.label, fontSize = 13.sp)
                                 Text(
-                                    "+${String.format("%.2f", row.amount)} €",
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32)
+                                    text = row.label,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+                                )
+                                Text(
+                                    text = "+${String.format("%.2f", row.amount)} €",
+                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                                    color = Color(0xFF2E7D32) // Sempre verde
                                 )
                             }
                         }
                     }
                 }
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
 
+                // AVVISO ATTESA ARDUINO
+                if (capturedBitmap != null && order.status != "RETURNED") {
+                    Text(
+                        text = "Attendi che la macchinetta rilevi l'oggetto...",
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                // TASTO TERMINA
                 Button(
-                    onClick = onDismiss,
+                    onClick = { showConfirmation = true },
+                    enabled = canTerminate,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    )
                 ) {
                     Text("TERMINA NOLEGGIO", fontWeight = FontWeight.Bold)
                 }
             }
         }
+    }
+
+    // DIALOG DI CONFERMA FINALE
+    if (showConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showConfirmation = false },
+            title = { Text("Conferma Termine", fontWeight = FontWeight.Black) },
+            text = { Text("Sei sicuro di voler terminare il noleggio? Assicurati di aver chiuso bene lo sportello.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onTerminate(order.id)
+                    showConfirmation = false
+                    onDismiss()
+                }) {
+                    Text("SÌ, TERMINA", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmation = false }) {
+                    Text("ANNULLA", color = Color.Gray)
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = Color.White
+        )
     }
 }
 

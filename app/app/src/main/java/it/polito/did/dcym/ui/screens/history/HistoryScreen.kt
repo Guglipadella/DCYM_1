@@ -150,7 +150,8 @@ fun HistoryScreen(
                     },
                     isPlaying = uiState.isPlayingSound,
                     onDismiss = { selectedItemForDetail = null },
-                    onPlaySound = { viewModel.playSound(item.order.pickupCode) }
+                    onPlaySound = { viewModel.playSound(item.order.pickupCode) },
+                    onTerminate = { viewModel.completeReturn(it) }
                 )
             } else {
                 // Se è un acquisto normale o un ordine ritirato/scaduto, usa il dialog standard

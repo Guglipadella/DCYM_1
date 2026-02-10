@@ -25,6 +25,8 @@ data class ProfileUiState(
 
 )
 
+
+
 class ProfileViewModel : ViewModel() {
     private val repository = FirebaseRepository()
     private val dtmfPlayer = DtmfPlayer()
@@ -48,7 +50,7 @@ class ProfileViewModel : ViewModel() {
                 _uiState.update { state ->
                     state.copy(
                         pendingPickupOrders = allOrders.filter { it.status == "PENDING" },
-                        activeRentals = allOrders.filter { it.status == "ONGOING" && it.isRent },
+                        activeRentals = allOrders.filter { (it.status == "ONGOING" || it.status == "RETURNED") && it.isRent },
                         pendingRefundOrders = allOrders.filter { it.status == "PENDING_REFUND" },
                         machineNames = machineMap,
                         productImages = productImageMap, // <--- Passa la mappa allo stato
@@ -74,6 +76,8 @@ class ProfileViewModel : ViewModel() {
 
     data class RefundRow(val label: String, val amount: Double)
 
+
+
     fun getFutureRefundOptions(order: Order): List<RefundRow> {
         val percentages = listOf(0.80, 0.72, 0.64, 0.56, 0.48, 0.40)
         val msPerDay = 24L * 60 * 60 * 1000
@@ -90,5 +94,13 @@ class ProfileViewModel : ViewModel() {
             }
         }
         return rows
+    }
+
+
+    // NUOVA FUNZIONE per terminare il noleggio ufficialmente
+    fun completeReturn(orderId: String) {
+        viewModelScope.launch {
+            repository.updateOrderStatus(orderId, "PENDING_REFUND")
+        }
     }
 }
