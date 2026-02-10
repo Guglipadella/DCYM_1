@@ -52,6 +52,7 @@ fun ProductInMachineScreen(
     }
     val uiState by viewModel.uiState.collectAsState()
     val product = uiState.product
+    var showConfirmDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {

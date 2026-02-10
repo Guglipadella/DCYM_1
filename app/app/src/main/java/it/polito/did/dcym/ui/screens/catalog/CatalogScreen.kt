@@ -212,7 +212,9 @@ private fun CatalogHeaderCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
+
             Column(modifier = Modifier.weight(1f)) {
+                Spacer(Modifier.height(32.dp))
                 Text(
                     text = "Ciao $userName",
                     fontSize = 20.sp,

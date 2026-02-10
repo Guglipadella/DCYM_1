@@ -572,7 +572,7 @@ fun ProfileItemCard(
                     .background(Color(0xFFEF5350), CircleShape)
                     .border(3.dp, Color.White, CircleShape)
                     .align(Alignment.TopStart)
-                    .offset(x = 4.dp, y = (-4).dp)
+                    .offset(x = -2.dp, y = (-12).dp)
             )
         }
     }

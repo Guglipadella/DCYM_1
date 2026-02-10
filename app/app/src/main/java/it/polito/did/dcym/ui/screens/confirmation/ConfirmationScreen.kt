@@ -80,6 +80,7 @@ fun ConfirmationContent(
     val buttonText = if (isRent) "Paga e Noleggia" else "Paga e Acquista"
     val outline = MaterialTheme.colorScheme.outline
     val paper = MaterialTheme.colorScheme.surface
+    var showConfirmDialog by remember { mutableStateOf(false) }
 
     GraphPaperBackground {
         Scaffold(
@@ -89,7 +90,8 @@ fun ConfirmationContent(
                 if (!isLoading && product != null) {
                     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp)) {
                         Button(
-                            onClick = onConfirmAndPay,
+                            // --- MODIFICA ONCLICK PER ATTIVARE IL DIALOG ---
+                            onClick = { showConfirmDialog = true },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(56.dp)
@@ -211,8 +213,34 @@ fun ConfirmationContent(
                     }
                     Spacer(modifier = Modifier.height(90.dp))
                 }
+
             }
+
+
         }
+
+    }
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Conferma Operazione", fontWeight = FontWeight.Black) },
+            text = { Text("Sei sicuro di voler procedere con il ${if (isRent) "noleggio" else "acquisto"}?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirmDialog = false
+                    onConfirmAndPay() // Esegue il pagamento solo qui
+                }) {
+                    Text("SÌ, PROCEDI", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("ANNULLA", color = Color.Gray)
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = Color.White
+        )
     }
 }
 
