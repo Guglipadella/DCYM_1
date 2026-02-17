@@ -53,6 +53,15 @@ fun ProfileScreen(
     var selectedOrderForRefund by remember { mutableStateOf<Order?>(null) }
     var selectedPickupOrder by remember { mutableStateOf<Order?>(null) }
 
+    // --- LOGICA DI SEPARAZIONE SCADUTI ---
+    val now = System.currentTimeMillis()
+    val oneDayMs = 24L * 60 * 60 * 1000
+
+    // Dividiamo gli ordini in attesa di ritiro in Validi e Scaduti
+    val (expiredPickups, validPickups) = uiState.pendingPickupOrders.partition {
+        now > (it.purchaseTimestamp + oneDayMs)
+    }
+
     Scaffold(
         bottomBar = {
             BottomNavBar(
@@ -80,19 +89,22 @@ fun ProfileScreen(
                 item { ProfileHeader(uiState.userName) }
                 item { BalanceCard(uiState.userBalance) }
 
-                if (uiState.pendingPickupOrders.isNotEmpty()) {
+                // 1. ORDINI DA RITIRARE (VALIDI)
+                if (validPickups.isNotEmpty()) {
                     item { SectionTitle("Da ritirare", "Prodotti in attesa di ritiro") }
-                    items(uiState.pendingPickupOrders) { order ->
+                    items(validPickups) { order ->
+                        val timeLeftLabel = calculatePickupTimeLeft(order.purchaseTimestamp)
                         ProfileItemCard(
                             order = order,
                             machineName = uiState.machineNames[order.machineId] ?: order.machineId,
-                            statusLabel = "Ritira entro 24h",
+                            statusLabel = timeLeftLabel,
                             isYellow = true,
                             onClick = { selectedPickupOrder = order }
                         )
                     }
                 }
 
+                // 2. NOLEGGI ATTIVI
                 item { SectionTitle("Noleggi attivi", "Seleziona per gestire la restituzione") }
                 if (uiState.activeRentals.isEmpty()) {
                     item { Text("Nessun noleggio attivo.", color = Color.Gray, fontSize = 13.sp) }
@@ -107,6 +119,7 @@ fun ProfileScreen(
                     }
                 }
 
+                // 3. IN VALUTAZIONE (RIMBORSI)
                 if (uiState.pendingRefundOrders.isNotEmpty()) {
                     item { SectionTitle("In valutazione", "Oggetti restituiti") }
                     items(uiState.pendingRefundOrders) { order ->
@@ -119,6 +132,23 @@ fun ProfileScreen(
                         )
                     }
                 }
+
+                // 4. ORDINI SCADUTI (In fondo, come richiesto)
+                if (expiredPickups.isNotEmpty()) {
+                    item {
+                        SectionTitle("Scaduti", "Tempo per il ritiro esaurito")
+                    }
+                    items(expiredPickups) { order ->
+                        ProfileItemCard(
+                            order = order,
+                            machineName = uiState.machineNames[order.machineId] ?: order.machineId,
+                            statusLabel = "Tempo scaduto",
+                            isYellow = false, // Magari non giallo per differenziarli
+                            onClick = { selectedPickupOrder = order } // Permette comunque di vedere i dettagli
+                        )
+                    }
+                }
+
                 item { Spacer(Modifier.height(80.dp)) }
             }
         }
@@ -134,11 +164,8 @@ fun ProfileScreen(
         }
 
         // DIALOG RESTITUZIONE PRODOTTO
-
         if (selectedOrderForReturn != null) {
-            // Cerchiamo l'ordine live nello uiState per avere lo status aggiornato (da ONGOING a RETURNED)
             val liveOrder = uiState.activeRentals.find { it.id == selectedOrderForReturn!!.id }
-
             ReturnDetailDialog(
                 order = liveOrder ?: selectedOrderForReturn!!,
                 machineName = uiState.machineNames[selectedOrderForReturn!!.machineId] ?: selectedOrderForReturn!!.machineId,
@@ -146,7 +173,7 @@ fun ProfileScreen(
                 isPlaying = uiState.isPlayingSound,
                 onDismiss = { selectedOrderForReturn = null },
                 onPlaySound = { viewModel.playSound(it) },
-                onTerminate = { viewModel.completeReturn(it) } // Nuova callback
+                onTerminate = { viewModel.completeReturn(it) }
             )
         }
 
@@ -177,7 +204,6 @@ fun ReturnDetailDialog(
     val paper = MaterialTheme.colorScheme.surface
     val yellowAction = Color(0xFFFFD54F)
 
-    // Stato temporaneo per la foto (non salvata nel DB)
     var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var showConfirmation by remember { mutableStateOf(false) }
 
@@ -187,7 +213,6 @@ fun ReturnDetailDialog(
         capturedBitmap = bitmap
     }
 
-    // Abilitato solo se: Foto presente E Arduino ha aggiornato lo stato a "RETURNED"
     val canTerminate = capturedBitmap != null && order.status == "RETURNED"
 
     Dialog(onDismissRequest = onDismiss) {
@@ -204,7 +229,6 @@ fun ReturnDetailDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
-                // HEADER
                 Box(Modifier.fillMaxWidth()) {
                     Text(
                         text = "Restituzione Prodotto",
@@ -219,14 +243,12 @@ fun ReturnDetailDialog(
 
                 Spacer(Modifier.height(24.dp))
 
-                // --- TUTORIAL ---
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     TutorialItem(1, "Recati alla macchinetta", machineName)
 
-                    // PUNTO 2: VERIFICA INTEGRITÀ + CAMERA MOCKUP
                     Column {
                         TutorialItem(2, "Verifica integrità", "Scatta una foto al prodotto per confermarne lo stato.")
                         Spacer(Modifier.height(12.dp))
@@ -253,13 +275,12 @@ fun ReturnDetailDialog(
                                         text = "Scatta la foto per procedere.\nSenza foto non potrai terminare.",
                                         fontSize = 13.sp,
                                         color = Color.Black,
-                                        fontWeight = FontWeight.Bold, // Contrasto alto e grassetto
+                                        fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center
                                     )
                                 }
                             }
                         } else {
-                            // PREVIEW FOTO + PULSANTE RIFAI
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Image(
                                     bitmap = capturedBitmap!!.asImageBitmap(),
@@ -294,7 +315,6 @@ fun ReturnDetailDialog(
 
                 Spacer(Modifier.height(32.dp))
 
-                // TASTO PLAY (RIFERIMENTO PICKUP CODE)
                 Button(
                     onClick = { onPlaySound(order.pickupCode) },
                     enabled = !isPlaying,
@@ -319,7 +339,6 @@ fun ReturnDetailDialog(
 
                 Spacer(Modifier.height(32.dp))
 
-                // --- PIANO RIMBORSI ---
                 Text(
                     "Piano Rimborsi",
                     fontWeight = FontWeight.Bold,
@@ -347,7 +366,7 @@ fun ReturnDetailDialog(
                                 Text(
                                     text = "+${String.format("%.2f", row.amount)} €",
                                     fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                                    color = Color(0xFF2E7D32) // Sempre verde
+                                    color = Color(0xFF2E7D32)
                                 )
                             }
                         }
@@ -356,7 +375,6 @@ fun ReturnDetailDialog(
 
                 Spacer(Modifier.height(24.dp))
 
-                // AVVISO ATTESA ARDUINO
                 if (capturedBitmap != null && order.status != "RETURNED") {
                     Text(
                         text = "Attendi che la macchinetta rilevi l'oggetto...",
@@ -367,7 +385,6 @@ fun ReturnDetailDialog(
                     )
                 }
 
-                // TASTO TERMINA
                 Button(
                     onClick = { showConfirmation = true },
                     enabled = canTerminate,
@@ -384,7 +401,6 @@ fun ReturnDetailDialog(
         }
     }
 
-    // DIALOG DI CONFERMA FINALE
     if (showConfirmation) {
         AlertDialog(
             onDismissRequest = { showConfirmation = false },
@@ -447,7 +463,7 @@ fun RefundEvaluationDialog(order: Order, machineName: String, onDismiss: () -> U
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Stato Rimborso", // <--- Aggiungi il titolo
+                        text = "Stato Rimborso",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
                         modifier = Modifier.align(Alignment.Center).padding(horizontal = 48.dp)
@@ -458,30 +474,22 @@ fun RefundEvaluationDialog(order: Order, machineName: String, onDismiss: () -> U
                 }
 
                 Icon(painterResource(R.drawable.ic_refound), null, modifier = Modifier.size(64.dp), tint = Color(0xFFFFD54F))
-
                 Spacer(Modifier.height(16.dp))
-
                 Text("Valutazione in corso", fontSize = 20.sp, fontWeight = FontWeight.Black)
-
                 Spacer(Modifier.height(8.dp))
-
                 Text(
                     "Hai restituito: ${order.productName}\npresso $machineName",
                     textAlign = TextAlign.Center,
                     lineHeight = 22.sp
                 )
-
                 Spacer(Modifier.height(24.dp))
-
                 Text(
                     "Il rimborso verrà accreditato entro 24 ore previa verifica dell'integrità.",
                     fontSize = 13.sp,
                     color = Color.Gray,
                     textAlign = TextAlign.Center
                 )
-
                 Spacer(Modifier.height(32.dp))
-
                 Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                     Text("CHIUDI")
                 }
@@ -489,8 +497,6 @@ fun RefundEvaluationDialog(order: Order, machineName: String, onDismiss: () -> U
         }
     }
 }
-
-// ---------------- ALTRI COMPONENTI ----------------
 
 @Composable
 fun BalanceCard(balance: Double) {
@@ -521,11 +527,8 @@ fun ProfileItemCard(
     val yellowAction = Color(0xFFFFD54F)
     val iconRes = if (isRefund) R.drawable.ic_refound else if (order.isRent) R.drawable.ic_rent else R.drawable.ic_buy
 
-    // ⬇️ WRAPPER BOX per far uscire il pallino
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp) // Spazio per il pallino
+        modifier = Modifier.fillMaxWidth().padding(8.dp)
     ) {
         Card(
             modifier = Modifier
@@ -563,7 +566,6 @@ fun ProfileItemCard(
             }
         }
 
-        // ⬇️ PALLINO ROSSO per noleggi ONGOING
         if (order.status == "ONGOING" && order.isRent) {
             Box(
                 modifier = Modifier
@@ -572,11 +574,12 @@ fun ProfileItemCard(
                     .background(Color(0xFFEF5350), CircleShape)
                     .border(3.dp, Color.White, CircleShape)
                     .align(Alignment.TopStart)
-                    .offset(x = -2.dp, y = (-12).dp)
+                    .offset(x = 0.dp, y = (-8).dp)
             )
         }
     }
 }
+
 @Composable
 fun ProfileHeader(name: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -592,8 +595,36 @@ fun ProfileHeader(name: String) {
 
 @Composable
 fun SectionTitle(title: String, subtitle: String) {
-    Column {
-        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, fontSize = 13.sp, color = Color.Gray)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp, bottom = 8.dp)
+    ) {
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            text = subtitle,
+            fontSize = 12.sp,
+            color = Color.Gray,
+            fontWeight = FontWeight.Normal
+        )
     }
+}
+
+fun calculatePickupTimeLeft(purchaseTime: Long): String {
+    val oneDayMs = 24L * 60 * 60 * 1000
+    val expiration = purchaseTime + oneDayMs
+    val now = System.currentTimeMillis()
+    val diff = expiration - now
+
+    if (diff <= 0) return "Tempo scaduto"
+
+    val hours = diff / (1000 * 60 * 60)
+    val minutes = (diff % (1000 * 60 * 60)) / (1000 * 60)
+
+    return "Scade in ${hours}h ${minutes}m"
 }

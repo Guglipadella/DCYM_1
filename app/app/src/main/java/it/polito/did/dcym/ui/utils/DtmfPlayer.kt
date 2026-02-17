@@ -6,7 +6,7 @@ import kotlinx.coroutines.delay
 
 class DtmfPlayer {
     // Volume al 100% per essere sicuri che Arduino senta
-    private val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+    private val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 90)
 
     /**
      * Riproduce la sequenza DTMF.
@@ -17,14 +17,35 @@ class DtmfPlayer {
         for ((index, char) in code.withIndex()) {
             val toneType = getToneForChar(char)
             if (toneType != -1) {
-                onNotePlayed(index) // Notifica quale numero sta suonando
-                toneGenerator.startTone(toneType, 150) // Suona per 150ms
-                delay(150) // Aspetta che finisca il suono
+                onNotePlayed(index)
+
+                // Verifichiamo se è l'ultimo carattere della sequenza
+                val isLast = index == code.length - 1
+
+                // Durata standard 500ms, ma l'ultimo dura 1000ms (1 secondo)
+                val duration = if (isLast) 1050 else 600
+
+                // Un micro-delay di sicurezza per stabilizzare l'audio prima di partire
+                delay(60)
+
+                // Avviamo il tono
+                toneGenerator.startTone(toneType, duration)
+
+                // Aspettiamo che il tono finisca (duration + piccolo margine di 50ms)
+                delay(duration.toLong() + 60)
+
+                // Fermiamo il tono esplicitamente
                 toneGenerator.stopTone()
-                delay(100) // Pausa di 100ms tra un tono e l'altro
+
+                // Pausa tra i toni: se non è l'ultimo, aspettiamo 400ms prima del prossimo
+                // Se è l'ultimo, abbiamo finito.
+                if (!isLast) {
+                    delay(400)
+                }
             }
         }
-        onNotePlayed(-1) // Reset alla fine
+        // Segnala alla UI che la sequenza è finita
+        onNotePlayed(-1)
     }
 
     private fun getToneForChar(c: Char): Int {

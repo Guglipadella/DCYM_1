@@ -198,7 +198,7 @@ private fun CatalogHeaderCard(
     val outline = MaterialTheme.colorScheme.outline
     val paper = MaterialTheme.colorScheme.surface
     val accent = MaterialTheme.colorScheme.secondary
-
+    Spacer(Modifier.height(32.dp))
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -214,7 +214,7 @@ private fun CatalogHeaderCard(
         ) {
 
             Column(modifier = Modifier.weight(1f)) {
-                Spacer(Modifier.height(32.dp))
+
                 Text(
                     text = "Ciao $userName",
                     fontSize = 20.sp,
